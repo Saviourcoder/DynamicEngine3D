@@ -1,27 +1,9 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using DynamicEngine; // Use DynamicEngine for Beam and MaterialProperties
 
 namespace DynamicEngine
 {
-    public class SceneSettings : MonoBehaviour
-    {
-        public static SceneSettings Instance { get; private set; } [SerializeField, Range(0f, 20f)] public float Gravity = 9.81f; [SerializeField, Range(1, 20)] public int ConstraintIterations = 10;
-
-
-        private void Awake()
-        {
-            if (Instance == null)
-            {
-                Instance = this;
-                DontDestroyOnLoad(gameObject);
-            }
-            else
-            {
-                Destroy(gameObject);
-            }
-        }
-    }
 
     public class NodeManager
     {
@@ -381,7 +363,7 @@ namespace DynamicEngine
             Debug.Log($"Restored {nodeManager.Nodes.Count} nodes, {beams.Count} beams");
         }
 
-        public void SimulatePlastic()
+        public void Solve()
         {
             if (nodeManager == null || beams == null || materialProps == null || nodeManager.Nodes == null)
             {
@@ -394,9 +376,11 @@ namespace DynamicEngine
             const float restThreshold = 0.01f;
             float dt = Time.fixedDeltaTime;
             float dtSquared = dt * dt;
+            const int maxSubSteps = 5; // Keep enhanced substepping
 
             collisionPoints.Clear();
 
+            // Initialize previous and predicted positions
             if (nodeManager.PreviousPositions.Count != nodeManager.Nodes.Count)
             {
                 nodeManager.PreviousPositions.Clear();
@@ -434,7 +418,105 @@ namespace DynamicEngine
                 nodeManager.PredictedPositions[i] = newPosition;
             }
 
-            // Step 2: XPBD constraint solving
+            // Step 2: Handle collisions (node-to-node and environment)
+            float collisionRadius = nodeManager.NodeRadius * 2f;
+            for (int i = 0; i < nodeManager.Nodes.Count; i++)
+            {
+                if (nodeManager.Nodes[i] == null || nodeManager.IsPinned[i]) continue;
+
+                Vector3 currentPos = nodeManager.Nodes[i].position;
+                Vector3 predictedPos = nodeManager.PredictedPositions[i];
+                Vector3 motion = predictedPos - currentPos;
+                float motionDistance = motion.magnitude;
+                int subSteps = Mathf.Min(maxSubSteps, Mathf.CeilToInt(motionDistance / (nodeManager.NodeRadius * 0.5f)));
+                float subDt = dt / (subSteps > 0 ? subSteps : 1);
+                Vector3 subMotion = motion / (subSteps > 0 ? subSteps : 1);
+
+                // Substep for accurate collision detection
+                Vector3 tempPos = currentPos;
+                for (int step = 0; step < subSteps; step++)
+                {
+                    tempPos += subMotion;
+
+                    // Environment collisions with ComputePenetration
+                    Collider nodeCollider = nodeManager.Colliders[i];
+                    Collider[] colliders = Physics.OverlapSphere(tempPos, nodeManager.NodeRadius);
+                    foreach (var collider in colliders)
+                    {
+                        if (collider == nodeCollider || collider.transform == nodeManager.Nodes[i]) continue;
+
+                        // Skip if collider belongs to another node in the same soft body
+                        int otherNodeIndex = nodeManager.FindIndex(n => n != null && n == collider.transform);
+                        if (otherNodeIndex != -1) continue;
+
+                        Vector3 direction;
+                        float distance;
+                        if (Physics.ComputePenetration(nodeCollider, tempPos, Quaternion.identity,
+                                                      collider, collider.transform.position, collider.transform.rotation,
+                                                      out direction, out distance))
+                        {
+                            Vector3 correction = direction * distance;
+                            float w = 1f / materialProps.nodeMass;
+                            float compliance = materialProps.defaultCompliance / dtSquared; // Reverted to default
+                            float lambda = -distance / (w + compliance);
+                            tempPos += correction * lambda;
+
+                            // High-impact deformation
+                            Vector3 velocity = subMotion / subDt;
+                            float impactMagnitude = velocity.magnitude * materialProps.nodeMass / subDt;
+                            if (impactMagnitude > 200)
+                            {
+                                Vector3 deformationOffset = -direction * materialProps.deformationScale;
+                                deformationOffset = Vector3.ClampMagnitude(deformationOffset, materialProps.maxDeformation);
+                                tempPos += deformationOffset;
+                                UpdateBeamRestLengths(i, tempPos);
+                            }
+
+                            collisionPoints.Add(tempPos - correction);
+                            Debug.DrawLine(tempPos - correction, tempPos, Color.green, 0.1f);
+                            Debug.DrawRay(tempPos, direction * 0.2f, Color.yellow, 0.1f);
+                        }
+                    }
+                }
+                nodeManager.PredictedPositions[i] = tempPos;
+
+                // Node-to-node collisions
+                Collider[] overlaps = Physics.OverlapSphere(nodeManager.PredictedPositions[i], nodeManager.NodeRadius);
+                foreach (var collider in overlaps)
+                {
+                    if (collider.transform == nodeManager.Nodes[i]) continue;
+                    int j = nodeManager.FindIndex(n => n != null && n == collider.transform);
+                    if (j == -1 || j == i || nodeManager.IsPinned[j]) continue;
+
+                    bool areConnected = beams.Exists(b =>
+                        (b.nodeA == i && b.nodeB == j) || (b.nodeA == j && b.nodeB == i));
+                    if (areConnected) continue;
+
+                    Vector3 posA = nodeManager.PredictedPositions[i];
+                    Vector3 posB = nodeManager.PredictedPositions[j];
+                    Vector3 delta = posB - posA;
+                    float distance = delta.magnitude;
+                    if (distance < collisionRadius && distance > 0.001f)
+                    {
+                        float constraint = distance - collisionRadius;
+                        Vector3 gradient = delta / distance;
+
+                        float wA = 1f / materialProps.nodeMass;
+                        float wB = 1f / materialProps.nodeMass;
+                        float wSum = wA + wB;
+
+                        float compliance = materialProps.defaultCompliance / dtSquared; // Reverted to default
+                        float lambda = -constraint / (wSum + compliance);
+
+                        Vector3 correction = gradient * lambda;
+                        nodeManager.PredictedPositions[i] -= wA * correction;
+                        nodeManager.PredictedPositions[j] += wB * correction;
+                        collisionPoints.Add((posA + posB) * 0.5f);
+                    }
+                }
+            }
+
+            // Step 3: XPBD constraint solving
             for (int iter = 0; iter < (SceneSettings.Instance != null ? SceneSettings.Instance.ConstraintIterations : 10); iter++)
             {
                 for (int i = 0; i < beams.Count; i++)
@@ -499,7 +581,7 @@ namespace DynamicEngine
                         if (!nodeManager.IsPinned[beam.nodeB]) nodeManager.PredictedPositions[beam.nodeB] = center + (nodeManager.PredictedPositions[beam.nodeB] - center) * scale;
                     }
 
-                    beams[i] = beam; // Update beam in the list
+                    beams[i] = beam;
                     if (visualizeForces && constraint != 0)
                     {
                         float forceMagnitude = Mathf.Abs(beam.lagrangeMultiplier) / dtSquared;
@@ -508,106 +590,61 @@ namespace DynamicEngine
                 }
             }
 
-            // Step 3: Node-to-node collisions
-            float collisionRadius = nodeManager.NodeRadius * 2f;
-            for (int i = 0; i < nodeManager.Nodes.Count; i++)
-            {
-                if (nodeManager.Nodes[i] == null || nodeManager.IsPinned[i]) continue;
-
-                Collider[] overlaps = Physics.OverlapSphere(nodeManager.PredictedPositions[i], nodeManager.NodeRadius);
-                foreach (var collider in overlaps)
-                {
-                    if (collider.transform == nodeManager.Nodes[i]) continue;
-                    int j = nodeManager.FindIndex(n => n != null && n == collider.transform);
-                    if (j == -1 || j == i || nodeManager.IsPinned[j]) continue;
-
-                    bool areConnected = beams.Exists(b =>
-                        (b.nodeA == i && b.nodeB == j) || (b.nodeA == j && b.nodeB == i));
-                    if (areConnected) continue;
-
-                    Vector3 posA = nodeManager.PredictedPositions[i];
-                    Vector3 posB = nodeManager.PredictedPositions[j];
-                    Vector3 delta = posB - posA;
-                    float distance = delta.magnitude;
-                    if (distance < collisionRadius && distance > 0.001f)
-                    {
-                        float constraint = distance - collisionRadius;
-                        Vector3 gradient = delta / distance;
-
-                        float wA = 1f / materialProps.nodeMass;
-                        float wB = 1f / materialProps.nodeMass;
-                        float wSum = wA + wB;
-
-                        float compliance = materialProps.defaultCompliance / dtSquared;
-                        float lambda = -constraint / (wSum + compliance);
-
-                        Vector3 correction = gradient * lambda;
-                        nodeManager.PredictedPositions[i] -= wA * correction;
-                        nodeManager.PredictedPositions[j] += wB * correction;
-                        collisionPoints.Add((posA + posB) * 0.5f);
-                    }
-                }
-            }
-
-            // Step 4: Update positions and ground collisions
+            // Step 4: Finalize positions and apply velocity corrections
             for (int i = 0; i < nodeManager.Nodes.Count; i++)
             {
                 if (nodeManager.Nodes[i] == null || nodeManager.IsPinned[i]) continue;
 
                 Vector3 currentPos = nodeManager.Nodes[i].position;
                 Vector3 predictedPos = nodeManager.PredictedPositions[i];
+                Vector3 motion = predictedPos - currentPos;
 
-                float rayDistance = Mathf.Max(Vector3.Distance(predictedPos, currentPos) + nodeManager.NodeRadius, 0.01f);
-                if (Physics.Raycast(currentPos, Vector3.down, out RaycastHit hit, rayDistance))
+                // Final collision check for velocity corrections
+                Collider nodeCollider = nodeManager.Colliders[i];
+                Collider[] colliders = Physics.OverlapSphere(predictedPos, nodeManager.NodeRadius);
+                bool inCollision = false;
+                Vector3 normal = Vector3.zero;
+                foreach (var collider in colliders)
                 {
-                    Vector3 velocity = (predictedPos - currentPos) / dt;
-                    float impactMagnitude = velocity.magnitude * materialProps.nodeMass / dt;
-                    Vector3 normal = hit.normal;
-                    Vector3 contactPoint = hit.point + normal * nodeManager.NodeRadius;
+                    if (collider == nodeCollider || collider.transform == nodeManager.Nodes[i]) continue;
+                    int otherNodeIndex = nodeManager.FindIndex(n => n != null && n == collider.transform);
+                    if (otherNodeIndex != -1) continue;
 
-                    if (impactMagnitude > 200)
+                    Vector3 direction;
+                    float distance;
+                    if (Physics.ComputePenetration(nodeCollider, predictedPos, Quaternion.identity,
+                                                  collider, collider.transform.position, collider.transform.rotation,
+                                                  out direction, out distance))
                     {
-                        Vector3 deformationOffset = -normal * materialProps.deformationScale;
-                        deformationOffset = Vector3.ClampMagnitude(deformationOffset, materialProps.maxDeformation);
-                        nodeManager.Nodes[i].position = contactPoint + deformationOffset;
-                        UpdateBeamRestLengths(i, nodeManager.Nodes[i].position);
+                        inCollision = true;
+                        normal = direction;
+                        predictedPos += direction * distance; // Ensure no penetration
+                        collisionPoints.Add(predictedPos);
+                        break;
                     }
-                    else
+                }
+
+                nodeManager.Nodes[i].position = predictedPos;
+
+                if (inCollision)
+                {
+                    Vector3 velocity = motion / dt;
+                    Vector3 velocityNormal = Vector3.Project(velocity, normal);
+                    Vector3 velocityTangent = velocity - velocityNormal;
+                    Vector3 newVelocity = velocityTangent * (1f - friction) - velocityNormal * restitution;
+
+                    if (newVelocity.magnitude < restThreshold)
                     {
-                        float constraint = Vector3.Dot(predictedPos - contactPoint, normal);
-                        if (constraint < 0)
-                        {
-                            float w = 1f / materialProps.nodeMass;
-                            float compliance = materialProps.defaultCompliance / dtSquared;
-                            float lambda = -constraint / (w + compliance);
-
-                            nodeManager.Nodes[i].position = predictedPos + normal * lambda;
-                        }
-                        else
-                        {
-                            nodeManager.Nodes[i].position = predictedPos;
-                        }
-
-                        Vector3 newVelocity = (nodeManager.Nodes[i].position - currentPos) / dt;
-                        Vector3 velocityNormal = Vector3.Project(newVelocity, normal);
-                        Vector3 velocityTangent = newVelocity - velocityNormal;
-                        newVelocity = velocityTangent * (1f - friction) - velocityNormal * restitution;
-
-                        if (newVelocity.magnitude < restThreshold)
-                        {
-                            newVelocity = Vector3.zero;
-                        }
-                        nodeManager.PreviousPositions[i] = nodeManager.Nodes[i].position - newVelocity * dt;
+                        newVelocity = Vector3.zero;
                     }
+                    nodeManager.PreviousPositions[i] = nodeManager.Nodes[i].position - newVelocity * dt;
                 }
                 else
                 {
-                    nodeManager.Nodes[i].position = predictedPos;
                     nodeManager.PreviousPositions[i] = currentPos;
                 }
             }
         }
-
         private void UpdateBeamRestLengths(int nodeIndex, Vector3 newPosition)
         {
             for (int i = 0; i < beams.Count; i++)
