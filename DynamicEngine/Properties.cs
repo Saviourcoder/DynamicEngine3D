@@ -1,4 +1,13 @@
-﻿using UnityEngine;
+/* DynamicEngine3D - Soft Body Simulation
+   *---*---*
+  / \ / \ / \
+ *---*---*---*
+ | DynamicEngine3D |  By: Elitmers
+ *---*---*---*
+  \ / \ / \ /
+   *---*---*
+*/
+using UnityEngine;
 
 namespace DynamicEngine
 {
