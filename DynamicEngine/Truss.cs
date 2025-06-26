@@ -1,6 +1,14 @@
+/* DynamicEngine3D - Soft Body Simulation
+   *---*---*
+  / \ / \ / \
+ *---*---*---*
+ | DynamicEngine3D |  By: Elitmers
+ *---*---*---*
+  \ / \ / \ /
+   *---*---*
+*/
 using UnityEngine;
 using System.Collections.Generic;
-using SoftBodySystem;
 
 #if UNITY_EDITOR
 using UnityEditor;
