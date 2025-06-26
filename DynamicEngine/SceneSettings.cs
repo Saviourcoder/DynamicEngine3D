@@ -1,6 +1,15 @@
+/* DynamicEngine3D - Soft Body Simulation
+   *---*---*
+  / \ / \ / \
+ *---*---*---*
+ | DynamicEngine3D |  By: Elitmers
+ *---*---*---*
+  \ / \ / \ /
+   *---*---*
+*/
 using UnityEngine;
 
-namespace SoftBodySystem
+namespace DynamicEngine
 {
     public class SceneSettings : MonoBehaviour
     {
@@ -13,7 +22,7 @@ namespace SoftBodySystem
             {
                 if (instance == null)
                 {
-                    instance = FindObjectOfType<SceneSettings>();
+                    instance = FindFirstObjectByType<SceneSettings>();
                     if (instance == null)
                     {
                         GameObject settingsObj = new GameObject("SceneSettings");
@@ -91,7 +100,7 @@ namespace SoftBodySystem
         {
             m_gravity = Mathf.Max(m_gravity, 0f);
             m_simulationTimeScale = Mathf.Clamp(m_simulationTimeScale, 0.1f, 1.0f);
-            m_constraintIterations = Mathf.Clamp(m_constraintIterations, 1, 10);
+            m_constraintIterations = Mathf.Clamp(m_constraintIterations, 1, 50);
             m_workerThreads = Mathf.Clamp(m_workerThreads, 1, 8);
             m_collisionDamping = Mathf.Clamp(m_collisionDamping, 0f, 1f);
             m_baseSubSteps = Mathf.Clamp(m_baseSubSteps, 1, 50);
@@ -108,13 +117,13 @@ namespace SoftBodySystem
         #region Private
 
         [Header("Physics Settings")]
-        [SerializeField, Range(0f, 20f), Tooltip("Magnitude of gravitational acceleration (m/s²)")]
+        [SerializeField, Range(0f, 20f), Tooltip("Magnitude of gravitational acceleration (m/sÂ²)")]
         private float m_gravity = 9.81f;
 
         [SerializeField, Range(0.1f, 1.0f), Tooltip("Simulation time scale (0.1 = 10% speed, 1.0 = normal speed)")]
         private float m_simulationTimeScale = 1.0f;
 
-        [SerializeField, Range(1, 10), Tooltip("Number of iterations for constraint solving")]
+        [SerializeField, Range(1, 50), Tooltip("Number of iterations for constraint solving")]
         private int m_constraintIterations = 5;
 
         [SerializeField, Range(1, 8), Tooltip("Number of worker threads for parallel processing")]
