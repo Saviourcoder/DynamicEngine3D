@@ -1,7 +1,15 @@
+/* DynamicEngine3D - Soft Body Simulation
+   *---*---*
+  / \ / \ / \
+ *---*---*---*
+ | DynamicEngine3D |  By: Elitmers
+ *---*---*---*
+  \ / \ / \ /
+   *---*---*
+*/
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using SoftBodySystem;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -51,6 +59,15 @@ namespace DynamicEngine
         [Header("Debugging")]
         [SerializeField, Tooltip("Enable debug logs for operations like pinning and stretch limit application")]
         public bool EnableDebugLogs = false;
+
+        [Header("Generator Settings")]
+        [SerializeField, Tooltip("Mesh to generate nodes and beams from")]
+        public Mesh SourceMesh;
+        [SerializeField, Range(0.1f, 1.0f), Tooltip("Resolution of the generated structure (1.0 = full detail, 0.1 = ~10% vertices)")]
+        public float Resolution = 1.0f;
+        [SerializeField, Tooltip("Generate tetrahedral connectivity for 3D soft-body stability")]
+        public bool UseTetrahedralConnectivity = true;
+
 
         [Header("References")]
         [SerializeField] public SoftBody SoftBodyReference;
@@ -375,6 +392,181 @@ namespace DynamicEngine
             ValidateNodeConnectivity();
         }
 
+        #region Generator
+        public void GenerateNodeBeamFromMesh()
+        {
+            Undo.RecordObject(this, "Generate Node and Beam from Mesh");
+
+            // Clear existing data
+            Nodes.Clear();
+            Links.Clear();
+            Faces.Clear();
+            SelectedNodeIndices.Clear();
+            SelectedLinkIndices.Clear();
+            SelectedFaceIndices.Clear();
+            PinnedNodes.Clear();
+
+            if (SourceMesh == null)
+            {
+                Debug.LogWarning("No source mesh assigned for generation.", this);
+                return;
+            }
+
+            // Validate resolution
+            Resolution = Mathf.Clamp(Resolution, 0.1f, 1.0f);
+
+            // Get mesh vertices and triangles
+            Vector3[] vertices = SourceMesh.vertices;
+            int[] triangles = SourceMesh.triangles;
+            if (vertices.Length == 0)
+            {
+                Debug.LogWarning("Source mesh has no vertices.", this);
+                return;
+            }
+
+            // Calculate target node count based on resolution
+            int targetNodeCount = Mathf.Max(1, Mathf.RoundToInt(vertices.Length * Resolution));
+            List<Vector3> newNodes = new List<Vector3>();
+            List<int> vertexToNodeMap = new List<int>(new int[vertices.Length]); // Maps original vertices to new node indices
+
+            // Cluster vertices based on resolution
+            ClusterVertices(vertices, targetNodeCount, newNodes, vertexToNodeMap);
+
+            // Add nodes
+            Nodes.AddRange(newNodes);
+
+            // Generate beams based on triangle edges
+            HashSet<(int, int)> createdLinks = new HashSet<(int, int)>();
+            for (int i = 0; i < triangles.Length; i += 3)
+            {
+                int v0 = triangles[i];
+                int v1 = triangles[i + 1];
+                int v2 = triangles[i + 2];
+
+                int n0 = vertexToNodeMap[v0];
+                int n1 = vertexToNodeMap[v1];
+                int n2 = vertexToNodeMap[v2];
+
+                // Create beams for valid edges
+                if (n0 >= 0 && n1 >= 0 && n0 != n1) AddBeam(n0, n1, createdLinks);
+                if (n1 >= 0 && n2 >= 0 && n1 != n2) AddBeam(n1, n2, createdLinks);
+                if (n2 >= 0 && n0 >= 0 && n2 != n0) AddBeam(n2, n0, createdLinks);
+            }
+
+            // Optional: Generate tetrahedral connectivity
+            if (UseTetrahedralConnectivity)
+            {
+                GenerateTetrahedralBeams(newNodes, createdLinks);
+            }
+
+            // Apply settings (no auto-save)
+            ApplyStretchLimits();
+            ApplyPinnedNodes();
+            ValidateNodeConnectivity();
+
+            if (EnableDebugLogs)
+                Debug.Log($"Generated mesh-based structure: {Nodes.Count} nodes, {Links.Count} links from mesh '{SourceMesh.name}'.", this);
+        }
+
+        private void ClusterVertices(Vector3[] vertices, int targetNodeCount, List<Vector3> newNodes, List<int> vertexToNodeMap)
+        {
+            // Simple grid-based clustering
+            if (targetNodeCount >= vertices.Length)
+            {
+                newNodes.AddRange(vertices);
+                for (int i = 0; i < vertices.Length; i++)
+                    vertexToNodeMap[i] = i;
+                return;
+            }
+
+            // Calculate bounding box to determine grid size
+            Vector3 min = vertices[0];
+            Vector3 max = vertices[0];
+            for (int i = 1; i < vertices.Length; i++)
+            {
+                min = Vector3.Min(min, vertices[i]);
+                max = Vector3.Max(max, vertices[i]);
+            }
+
+            // Estimate grid cell size based on resolution
+            float clusterSize = Mathf.Pow((max - min).magnitude / Mathf.Pow(targetNodeCount, 1f / 3f), 3);
+            Dictionary<Vector3Int, List<(int, Vector3)>> clusters = new Dictionary<Vector3Int, List<(int, Vector3)>>();
+
+            // Assign vertices to grid cells
+            for (int i = 0; i < vertices.Length; i++)
+            {
+                Vector3 pos = vertices[i];
+                Vector3Int cell = new Vector3Int(
+                    Mathf.FloorToInt(pos.x / clusterSize),
+                    Mathf.FloorToInt(pos.y / clusterSize),
+                    Mathf.FloorToInt(pos.z / clusterSize)
+                );
+                if (!clusters.ContainsKey(cell))
+                    clusters[cell] = new List<(int, Vector3)>();
+                clusters[cell].Add((i, pos));
+            }
+
+            // Merge vertices in each cluster
+            int nodeIndex = 0;
+            foreach (var cluster in clusters.Values)
+            {
+                if (cluster.Count == 0) continue;
+
+                // Compute centroid of the cluster
+                Vector3 centroid = Vector3.zero;
+                foreach (var (index, pos) in cluster)
+                    centroid += pos;
+                centroid /= cluster.Count;
+
+                newNodes.Add(centroid);
+                foreach (var (index, _) in cluster)
+                    vertexToNodeMap[index] = nodeIndex;
+                nodeIndex++;
+            }
+
+            // Ensure at least one node
+            if (newNodes.Count == 0)
+            {
+                newNodes.Add(vertices[0]);
+                vertexToNodeMap[0] = 0;
+            }
+        }
+
+        private void GenerateTetrahedralBeams(List<Vector3> nodes, HashSet<(int, int)> createdLinks)
+        {
+            // Connect each node to its k-nearest neighbors
+            int k = 4; // Typical for tetrahedral structures
+            for (int i = 0; i < nodes.Count; i++)
+            {
+                var distances = new List<(int, float)>();
+                for (int j = 0; j < nodes.Count; j++)
+                {
+                    if (i != j)
+                    {
+                        float dist = Vector3.Distance(nodes[i], nodes[j]);
+                        distances.Add((j, dist));
+                    }
+                }
+
+                distances.Sort((a, b) => a.Item2.CompareTo(b.Item2));
+                for (int j = 0; j < Mathf.Min(k, distances.Count); j++)
+                {
+                    AddBeam(i, distances[j].Item1, createdLinks);
+                }
+            }
+        }
+
+        private void AddBeam(int nodeA, int nodeB, HashSet<(int, int)> createdLinks)
+        {
+            if (nodeA == nodeB || nodeA < 0 || nodeB < 0 || nodeA >= Nodes.Count || nodeB >= Nodes.Count) return;
+            int min = Mathf.Min(nodeA, nodeB);
+            int max = Mathf.Max(nodeA, nodeB);
+            if (createdLinks.Contains((min, max))) return;
+
+            createdLinks.Add((min, max));
+            CreateLink(nodeA, nodeB);
+        }
+
         public void SaveToTrussAsset()
         {
             if (SoftBodyReference == null || SoftBodyReference.GetTrussAsset() == null)
@@ -392,14 +584,14 @@ namespace DynamicEngine
             TrussAsset truss = SoftBodyReference.GetTrussAsset();
             truss.SetNodePositions(Nodes.ToArray());
             var trussBeams = Links
-            .Where(link => link.nodeA >= 0 && link.nodeA < Nodes.Count && link.nodeB >= 0 && link.nodeB < Nodes.Count)
-            .Select(link => new TrussAsset.TrussBeam(
-            link.nodeA,
-            link.nodeB,
-            link.compliance,
-            link.damping,
-            link.restLength
-             )).ToList();
+                .Where(link => link.nodeA >= 0 && link.nodeA < Nodes.Count && link.nodeB >= 0 && link.nodeB < Nodes.Count)
+                .Select(link => new TrussAsset.TrussBeam(
+                    link.nodeA,
+                    link.nodeB,
+                    link.compliance,
+                    link.damping,
+                    link.restLength
+                )).ToList();
             var trussFaces = Faces
                 .Where(face => face.nodeA >= 0 && face.nodeA < Nodes.Count && face.nodeB >= 0 && face.nodeB < Nodes.Count && face.nodeC >= 0 && face.nodeC < Nodes.Count)
                 .Select(face => new TrussAsset.TrussFace(face.nodeA, face.nodeB, face.nodeC))
@@ -416,6 +608,7 @@ namespace DynamicEngine
             ValidateNodeConnectivity();
         }
         #endregion
+
 
         #region Physics Settings
         public void ApplyStretchLimits()
@@ -625,8 +818,6 @@ namespace DynamicEngine
                 .Select(link => new Beam(link.nodeA, link.nodeB, link.compliance, link.damping, link.restLength))
                 .ToList();
 
-            core.GenerateNodesAndBeams(Nodes.ToArray(), beams.ToArray(), transform);
-
             try
             {
                 var maxField = typeof(SoftBodyCore).GetField("maxStretchFactor", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
@@ -715,7 +906,7 @@ namespace DynamicEngine
 
         private void DrawTabs()
         {
-            string[] tabs = { "Nodes", "Links", "Faces", "Stretch Limits", "Visualization", "Debugging" };
+            string[] tabs = { "Nodes", "Links", "Faces", "Generator", "Stretch Limits", "Visualization", "Debugging" };
             EditorTarget.CurrentTab = GUILayout.Toolbar(EditorTarget.CurrentTab, tabs);
             EditorGUILayout.Space();
 
@@ -724,11 +915,14 @@ namespace DynamicEngine
                 case 0: DrawNodesTab(); break;
                 case 1: DrawLinksTab(); break;
                 case 2: DrawFacesTab(); break;
-                case 3: DrawStretchLimitsTab(); break;
-                case 4: DrawVisualizationTab(); break;
-                case 5: DrawDebuggingTab(); break;
+                case 3: DrawGeneratorTab(); break;
+                case 4: DrawStretchLimitsTab(); break;
+                case 5: DrawVisualizationTab(); break;
+                case 6: DrawDebuggingTab(); break;
             }
         }
+
+
 
         private void DrawNodesTab()
         {
@@ -971,6 +1165,42 @@ namespace DynamicEngine
             }
         }
 
+        private void DrawGeneratorTab()
+        {
+            EditorGUILayout.LabelField("Mesh-Based Soft-Body Generator", EditorStyles.boldLabel);
+            EditorGUI.indentLevel++;
+
+            EditorGUI.BeginChangeCheck();
+            EditorTarget.SourceMesh = (Mesh)EditorGUILayout.ObjectField(new GUIContent("Source Mesh", "Mesh to generate truss-like nodes and beams from"), EditorTarget.SourceMesh, typeof(Mesh), false);
+            EditorTarget.Resolution = EditorGUILayout.Slider(new GUIContent("Resolution", "Controls node and beam density (1.0 = full mesh, 0.1 = ~10% vertices)"), EditorTarget.Resolution, 0.1f, 1.0f);
+            EditorTarget.UseTetrahedralConnectivity = EditorGUILayout.Toggle(new GUIContent("Tetrahedral Connectivity", "Generate additional beams for 3D soft-body stability"), EditorTarget.UseTetrahedralConnectivity);
+            if (EditorGUI.EndChangeCheck())
+            {
+                serializedObject.FindProperty("SourceMesh").objectReferenceValue = EditorTarget.SourceMesh;
+                serializedObject.FindProperty("Resolution").floatValue = EditorTarget.Resolution;
+                serializedObject.FindProperty("UseTetrahedralConnectivity").boolValue = EditorTarget.UseTetrahedralConnectivity;
+            }
+
+            EditorGUILayout.BeginHorizontal();
+            if (GUILayout.Button("Generate From Mesh"))
+            {
+                EditorTarget.GenerateNodeBeamFromMesh();
+            }
+            if (GUILayout.Button("Save Truss"))
+            {
+                EditorTarget.SaveToTrussAsset();
+            }
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.HelpBox("Generates a truss-like structure for soft-body simulation from the mesh. Lower resolution merges nodes and beams (e.g., 4 nodes to 1). Use 'Save Truss' to save to the assigned TrussAsset.", MessageType.Info);
+            EditorGUI.indentLevel--;
+
+            EditorTarget.IsCreatingNode = false;
+            EditorTarget.CreatingLinkNodeIndex = -1;
+            EditorTarget.CreatingFaceNodeIndices.Clear();
+        }
+
+
         private void DrawStretchLimitsTab()
         {
             if (EditorTarget == null) return;
@@ -1117,6 +1347,8 @@ namespace DynamicEngine
 
         public void OnSceneGUI()
         {
+            if (Application.isPlaying) return; // Exit early during play mode
+
             Event e = Event.current;
             int controlID = GUIUtility.GetControlID(FocusType.Passive);
             HandleUtility.AddDefaultControl(controlID);
@@ -1516,3 +1748,4 @@ public struct MaterialPreset
     public float plasticityThreshold;
     public float plasticityRate;
 }
+#endregion
