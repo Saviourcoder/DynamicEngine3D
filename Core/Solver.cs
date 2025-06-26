@@ -1,4 +1,13 @@
-﻿using System.Collections.Generic;
+/* DynamicEngine3D - Soft Body Simulation
+   *---*---*
+  / \ / \ / \
+ *---*---*---*
+ | DynamicEngine3D |  By: Elitmers
+ *---*---*---*
+  \ / \ / \ /
+   *---*---*
+*/
+using System.Collections.Generic;
 using UnityEngine;
 using DynamicEngine; // Use DynamicEngine for Beam and MaterialProperties
 
