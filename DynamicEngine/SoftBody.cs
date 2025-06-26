@@ -1,6 +1,14 @@
+/* DynamicEngine3D - Soft Body Simulation
+   *---*---*
+  / \ / \ / \
+ *---*---*---*
+ | DynamicEngine3D |  By: Elitmers
+ *---*---*---*
+  \ / \ / \ /
+   *---*---*
+*/
 using UnityEngine;
 using System.Collections.Generic;
-using SoftBodySystem;
 using DynamicEngine;
 
 #if UNITY_EDITOR
@@ -133,7 +141,7 @@ namespace DynamicEngine
         {
             if (core != null)
             {
-                core.SimulatePlastic();
+                core.Solve();
                 core.DeformMesh(transform);
             }
         }
