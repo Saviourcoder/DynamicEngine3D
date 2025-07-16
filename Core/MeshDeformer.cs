@@ -15,7 +15,7 @@ namespace DynamicEngine
 {
     public class MeshDeformer
     {
-        private readonly Mesh mesh;
+        public readonly Mesh mesh;
         private readonly Vector3[] originalVertices;
         private readonly Dictionary<int, List<(int vertexIndex, float weight)>> nodeVertexWeights;
         private readonly float influenceRadius;
