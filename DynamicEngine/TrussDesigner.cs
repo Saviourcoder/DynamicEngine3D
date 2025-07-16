@@ -32,7 +32,7 @@ namespace DynamicEngine
         [SerializeField] public bool IsCreatingNode = false;
         [SerializeField] public int CreatingLinkNodeIndex = -1;
         [SerializeField] public List<int> CreatingFaceNodeIndices = new List<int>();
-        [SerializeField] public int CurrentTab = 0; // 0: Nodes, 1: Links, 2: Faces, 3: Visualization, 4: Debugging
+        [SerializeField] public int CurrentTab = 0;
 
         [Header("Physical Properties")]
         [SerializeField, Range(0.1f, 5.0f)] public float NodeMass = 0.5f;
@@ -42,7 +42,7 @@ namespace DynamicEngine
         public float MinStretchFactor = 0.95f;
 
         [Header("Visualization Settings")]
-        [SerializeField, Tooltip("Visualize forces (red: tension, blue: compression, green: collisions, magenta: ground)")]
+        [SerializeField, Tooltip("Visualize forces (red: tension, blue: compression, green: collisions, magenta: ground, cyan: face-node)")]
         public bool VisualizeForces = false;
         [SerializeField, Tooltip("Size of node spheres in the Scene view")]
         public float NodeSize = 0.1f;
@@ -68,7 +68,6 @@ namespace DynamicEngine
         [SerializeField, Tooltip("Generate tetrahedral connectivity for 3D soft-body stability")]
         public bool UseTetrahedralConnectivity = true;
 
-
         [Header("References")]
         [SerializeField] public SoftBody SoftBodyReference;
         public SoftBody SoftBody => SoftBodyReference;
@@ -83,6 +82,12 @@ namespace DynamicEngine
 
         private void Awake()
         {
+            if (Application.isPlaying)
+            {
+              enabled = false; // Disable the script during Play Mode
+              if (EnableDebugLogs) Debug.Log("NodeLinkEditor disabled during Play Mode.", this);
+              return;
+            }
             Initialize();
         }
 
@@ -122,18 +127,22 @@ namespace DynamicEngine
             ApplyPinnedNodes();
         }
 
-        private void UpdateVisualization()
+        public void UpdateVisualization()
         {
             if (SoftBodyReference == null) return;
             var core = GetSoftBodyCore();
             if (core != null) core.visualizeForces = VisualizeForces;
         }
 
-        private SoftBodyCore GetSoftBodyCore()
-        {
+       public SoftBodyCore GetSoftBodyCore()
+       {
+          if (SoftBodyReference == null)
+            {
+              Debug.LogWarning("SoftBodyReference is null in GetSoftBodyCore.", this);
+              return null;
+            }
             return typeof(SoftBody).GetField("core", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(SoftBodyReference) as SoftBodyCore;
-        }
-
+       }
         #region Node Management
         public void CreateNode(Vector3 position)
         {
@@ -397,7 +406,6 @@ namespace DynamicEngine
         {
             Undo.RecordObject(this, "Generate Node and Beam from Mesh");
 
-            // Clear existing data
             Nodes.Clear();
             Links.Clear();
             Faces.Clear();
@@ -412,10 +420,8 @@ namespace DynamicEngine
                 return;
             }
 
-            // Validate resolution
             Resolution = Mathf.Clamp(Resolution, 0.1f, 1.0f);
 
-            // Get mesh vertices and triangles
             Vector3[] vertices = SourceMesh.vertices;
             int[] triangles = SourceMesh.triangles;
             if (vertices.Length == 0)
@@ -424,18 +430,14 @@ namespace DynamicEngine
                 return;
             }
 
-            // Calculate target node count based on resolution
             int targetNodeCount = Mathf.Max(1, Mathf.RoundToInt(vertices.Length * Resolution));
             List<Vector3> newNodes = new List<Vector3>();
-            List<int> vertexToNodeMap = new List<int>(new int[vertices.Length]); // Maps original vertices to new node indices
+            List<int> vertexToNodeMap = new List<int>(new int[vertices.Length]);
 
-            // Cluster vertices based on resolution
             ClusterVertices(vertices, targetNodeCount, newNodes, vertexToNodeMap);
 
-            // Add nodes
             Nodes.AddRange(newNodes);
 
-            // Generate beams based on triangle edges
             HashSet<(int, int)> createdLinks = new HashSet<(int, int)>();
             for (int i = 0; i < triangles.Length; i += 3)
             {
@@ -447,30 +449,31 @@ namespace DynamicEngine
                 int n1 = vertexToNodeMap[v1];
                 int n2 = vertexToNodeMap[v2];
 
-                // Create beams for valid edges
+                if (n0 >= 0 && n1 >= 0 && n2 >= 0 && n0 != n1 && n1 != n2 && n0 != n2)
+                {
+                    CreateFace(n0, n1, n2);
+                }
+
                 if (n0 >= 0 && n1 >= 0 && n0 != n1) AddBeam(n0, n1, createdLinks);
                 if (n1 >= 0 && n2 >= 0 && n1 != n2) AddBeam(n1, n2, createdLinks);
                 if (n2 >= 0 && n0 >= 0 && n2 != n0) AddBeam(n2, n0, createdLinks);
             }
 
-            // Optional: Generate tetrahedral connectivity
             if (UseTetrahedralConnectivity)
             {
                 GenerateTetrahedralBeams(newNodes, createdLinks);
             }
 
-            // Apply settings (no auto-save)
             ApplyStretchLimits();
             ApplyPinnedNodes();
             ValidateNodeConnectivity();
 
             if (EnableDebugLogs)
-                Debug.Log($"Generated mesh-based structure: {Nodes.Count} nodes, {Links.Count} links from mesh '{SourceMesh.name}'.", this);
+                Debug.Log($"Generated mesh-based structure: {Nodes.Count} nodes, {Links.Count} links, {Faces.Count} faces from mesh '{SourceMesh.name}'.", this);
         }
 
         private void ClusterVertices(Vector3[] vertices, int targetNodeCount, List<Vector3> newNodes, List<int> vertexToNodeMap)
         {
-            // Simple grid-based clustering
             if (targetNodeCount >= vertices.Length)
             {
                 newNodes.AddRange(vertices);
@@ -479,7 +482,6 @@ namespace DynamicEngine
                 return;
             }
 
-            // Calculate bounding box to determine grid size
             Vector3 min = vertices[0];
             Vector3 max = vertices[0];
             for (int i = 1; i < vertices.Length; i++)
@@ -488,11 +490,9 @@ namespace DynamicEngine
                 max = Vector3.Max(max, vertices[i]);
             }
 
-            // Estimate grid cell size based on resolution
             float clusterSize = Mathf.Pow((max - min).magnitude / Mathf.Pow(targetNodeCount, 1f / 3f), 3);
             Dictionary<Vector3Int, List<(int, Vector3)>> clusters = new Dictionary<Vector3Int, List<(int, Vector3)>>();
 
-            // Assign vertices to grid cells
             for (int i = 0; i < vertices.Length; i++)
             {
                 Vector3 pos = vertices[i];
@@ -506,13 +506,11 @@ namespace DynamicEngine
                 clusters[cell].Add((i, pos));
             }
 
-            // Merge vertices in each cluster
             int nodeIndex = 0;
             foreach (var cluster in clusters.Values)
             {
                 if (cluster.Count == 0) continue;
 
-                // Compute centroid of the cluster
                 Vector3 centroid = Vector3.zero;
                 foreach (var (index, pos) in cluster)
                     centroid += pos;
@@ -524,7 +522,6 @@ namespace DynamicEngine
                 nodeIndex++;
             }
 
-            // Ensure at least one node
             if (newNodes.Count == 0)
             {
                 newNodes.Add(vertices[0]);
@@ -534,8 +531,7 @@ namespace DynamicEngine
 
         private void GenerateTetrahedralBeams(List<Vector3> nodes, HashSet<(int, int)> createdLinks)
         {
-            // Connect each node to its k-nearest neighbors
-            int k = 4; // Typical for tetrahedral structures
+            int k = 4;
             for (int i = 0; i < nodes.Count; i++)
             {
                 var distances = new List<(int, float)>();
@@ -600,6 +596,12 @@ namespace DynamicEngine
             truss.SetFaces(trussFaces);
             SoftBodyReference.ApplyTrussAsset(truss);
 
+            var core = GetSoftBodyCore();
+            if (core != null)
+            {
+                core.SetTrussAsset(truss);
+            }
+
 #if UNITY_EDITOR
             EditorUtility.SetDirty(truss);
             EditorUtility.SetDirty(SoftBodyReference);
@@ -608,7 +610,6 @@ namespace DynamicEngine
             ValidateNodeConnectivity();
         }
         #endregion
-
 
         #region Physics Settings
         public void ApplyStretchLimits()
@@ -682,7 +683,7 @@ namespace DynamicEngine
                 }
                 else
                 {
-                    Debug.LogWarning("PinNode/UnpinNode methods not implemented in SoftBodyCore. Add these for pinning functionality.", this);
+                    Debug.LogWarning("PinNode/UnpinNode methods not implemented in SoftBodyCore.", this);
                 }
             }
             catch (System.Exception e)
@@ -906,23 +907,33 @@ namespace DynamicEngine
 
         private void DrawTabs()
         {
-            string[] tabs = { "Nodes", "Links", "Faces", "Generator", "Stretch Limits", "Visualization", "Debugging" };
+            string[] tabs = { "Info","Nodes", "Links", "Faces", "Generator", "Stretch Limits", "Visualization", "Debugging" };
             EditorTarget.CurrentTab = GUILayout.Toolbar(EditorTarget.CurrentTab, tabs);
             EditorGUILayout.Space();
 
             switch (EditorTarget.CurrentTab)
             {
-                case 0: DrawNodesTab(); break;
-                case 1: DrawLinksTab(); break;
-                case 2: DrawFacesTab(); break;
-                case 3: DrawGeneratorTab(); break;
-                case 4: DrawStretchLimitsTab(); break;
-                case 5: DrawVisualizationTab(); break;
-                case 6: DrawDebuggingTab(); break;
+                case 0: DrawInfoTab(); break;
+                case 1: DrawNodesTab(); break;
+                case 2: DrawLinksTab(); break;
+                case 3: DrawFacesTab(); break;
+                case 4: DrawGeneratorTab(); break;
+                case 5: DrawStretchLimitsTab(); break;
+                case 6: DrawVisualizationTab(); break;
+                case 7: DrawDebuggingTab(); break;
             }
         }
 
+        private void DrawInfoTab()
+        {
+          EditorGUILayout.LabelField("Truss Information", EditorStyles.boldLabel); EditorGUI.indentLevel++;
+          EditorGUILayout.LabelField($"Total Nodes: {EditorTarget.Nodes?.Count ?? 0}");
+          EditorGUILayout.LabelField($"Total Links: {EditorTarget.Links?.Count ?? 0}");
+          EditorGUILayout.LabelField($"Total Faces: {EditorTarget.Faces?.Count ?? 0}");
 
+          EditorGUI.indentLevel--;
+
+        } 
 
         private void DrawNodesTab()
         {
@@ -1200,7 +1211,6 @@ namespace DynamicEngine
             EditorTarget.CreatingFaceNodeIndices.Clear();
         }
 
-
         private void DrawStretchLimitsTab()
         {
             if (EditorTarget == null) return;
@@ -1232,6 +1242,7 @@ namespace DynamicEngine
                 EditorGUILayout.EndHorizontal();
             }
 
+            EditorGUILayout.HelpBox("Stretch limits control how much beams can stretch or compress. Rigid settings use lower stretch factors and stiffer properties.", MessageType.Info);
             EditorGUI.indentLevel--;
         }
 
@@ -1239,74 +1250,57 @@ namespace DynamicEngine
         {
             EditorGUILayout.LabelField("Visualization Settings", EditorStyles.boldLabel);
             EditorGUI.indentLevel++;
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("VisualizeForces"), new GUIContent("Visualize Forces", "Show force vectors in simulation (red: tension, blue: compression)"));
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("NodeSize"), new GUIContent("Node Size", "Size of node spheres in Scene view"));
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("LinkThickness"), new GUIContent("Link Thickness", "Thickness of link lines in Scene view"));
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("NodeColor"), new GUIContent("Node Color", "Color for unselected nodes"));
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("SelectedNodeColor"), new GUIContent("Selected Node Color"));
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("PinnedNodeColor"), new GUIContent("Pinned Node Color"));
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("LinkColor"), new GUIContent("Link Color", "Color for unselected links"));
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("SelectedLinkColor"), new GUIContent("Selected Link Color"));
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("FaceColor"), new GUIContent("Face Color", "Color for unselected faces"));
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("SelectedFaceColor"), new GUIContent("Selected Face Color"));
+
+            EditorGUI.BeginChangeCheck();
+            EditorTarget.VisualizeForces = EditorGUILayout.Toggle(new GUIContent("Visualize Forces", "Show forces: red (tension), blue (compression), green (collisions), magenta (ground), cyan (face-node)"), EditorTarget.VisualizeForces);
+            EditorTarget.NodeSize = EditorGUILayout.FloatField(new GUIContent("Node Size", "Size of node spheres in Scene view"), Mathf.Max(0.01f, EditorTarget.NodeSize));
+            EditorTarget.LinkThickness = EditorGUILayout.FloatField(new GUIContent("Link Thickness", "Thickness of link lines in Scene view"), Mathf.Max(0.1f, EditorTarget.LinkThickness));
+            EditorTarget.NodeColor = EditorGUILayout.ColorField(new GUIContent("Node Color", "Color for unselected nodes"), EditorTarget.NodeColor);
+            EditorTarget.SelectedNodeColor = EditorGUILayout.ColorField(new GUIContent("Selected Node Color", "Color for selected nodes"), EditorTarget.SelectedNodeColor);
+            EditorTarget.PinnedNodeColor = EditorGUILayout.ColorField(new GUIContent("Pinned Node Color", "Color for pinned nodes"), EditorTarget.PinnedNodeColor);
+            EditorTarget.LinkColor = EditorGUILayout.ColorField(new GUIContent("Link Color", "Color for unselected links"), EditorTarget.LinkColor);
+            EditorTarget.SelectedLinkColor = EditorGUILayout.ColorField(new GUIContent("Selected Link Color", "Color for selected links"), EditorTarget.SelectedLinkColor);
+            EditorTarget.FaceColor = EditorGUILayout.ColorField(new GUIContent("Face Color", "Color for unselected faces"), EditorTarget.FaceColor);
+            EditorTarget.SelectedFaceColor = EditorGUILayout.ColorField(new GUIContent("Selected Face Color", "Color for selected faces"), EditorTarget.SelectedFaceColor);
+            if (EditorGUI.EndChangeCheck())
+            {
+                Undo.RecordObject(EditorTarget, "Change Visualization Settings");
+                serializedObject.FindProperty("VisualizeForces").boolValue = EditorTarget.VisualizeForces;
+                serializedObject.FindProperty("NodeSize").floatValue = EditorTarget.NodeSize;
+                serializedObject.FindProperty("LinkThickness").floatValue = EditorTarget.LinkThickness;
+                serializedObject.FindProperty("NodeColor").colorValue = EditorTarget.NodeColor;
+                serializedObject.FindProperty("SelectedNodeColor").colorValue = EditorTarget.SelectedNodeColor;
+                serializedObject.FindProperty("PinnedNodeColor").colorValue = EditorTarget.PinnedNodeColor;
+                serializedObject.FindProperty("LinkColor").colorValue = EditorTarget.LinkColor;
+                serializedObject.FindProperty("SelectedLinkColor").colorValue = EditorTarget.SelectedLinkColor;
+                serializedObject.FindProperty("FaceColor").colorValue = EditorTarget.FaceColor;
+                serializedObject.FindProperty("SelectedFaceColor").colorValue = EditorTarget.SelectedFaceColor;
+                EditorTarget.UpdateVisualization();
+            }
+
             EditorGUI.indentLevel--;
-            EditorTarget.IsCreatingNode = false;
-            EditorTarget.CreatingLinkNodeIndex = -1;
-            EditorTarget.CreatingFaceNodeIndices.Clear();
         }
 
         private void DrawDebuggingTab()
         {
-            EditorGUILayout.LabelField("Debugging Tools", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("EnableDebugLogs"), new GUIContent("Enable Debug Logs", "Log detailed operations like pinning and stretch limit application"));
+            EditorGUILayout.LabelField("Debugging Settings", EditorStyles.boldLabel);
+            EditorGUI.indentLevel++;
 
-            if (GUILayout.Button("Validate Node Connections"))
+            EditorTarget.EnableDebugLogs = EditorGUILayout.Toggle(new GUIContent("Enable Debug Logs", "Log detailed information for operations like pinning and stretch limits"), EditorTarget.EnableDebugLogs);
+            serializedObject.FindProperty("EnableDebugLogs").boolValue = EditorTarget.EnableDebugLogs;
+
+            if (GUILayout.Button("Validate Node Connectivity"))
             {
-                NodeConnections.Clear();
-                if (EditorTarget.Nodes.Count == 0 || EditorTarget.Links.Count == 0)
-                {
-                    EditorGUILayout.LabelField("No nodes or links to validate.");
-                }
-                else
-                {
-                    for (int i = 0; i < EditorTarget.Nodes.Count; i++)
-                    {
-                        NodeConnections[i] = 0;
-                    }
-                    foreach (var link in EditorTarget.Links)
-                    {
-                        if (link.nodeA >= 0 && link.nodeA < EditorTarget.Nodes.Count)
-                            NodeConnections[link.nodeA]++;
-                        if (link.nodeB >= 0 && link.nodeB < EditorTarget.Nodes.Count)
-                            NodeConnections[link.nodeB]++;
-                    }
-                }
+                EditorTarget.ValidateNodeConnectivity();
             }
 
-            if (NodeConnections.Count > 0)
-            {
-                EditorGUILayout.LabelField("Node Connectivity Details", EditorStyles.boldLabel);
-                EditorGUI.indentLevel++;
-                foreach (var pair in NodeConnections.OrderBy(kvp => kvp.Key))
-                {
-                    EditorGUILayout.LabelField($"Node {pair.Key}: {pair.Value} connections");
-                }
-                EditorGUI.indentLevel--;
-            }
-
-            if (GUILayout.Button("Reapply Truss Limits and Pinned Nodes"))
-            {
-                EditorTarget.ApplyStretchLimits();
-                EditorTarget.ApplyPinnedNodes();
-            }
-            EditorTarget.IsCreatingNode = false;
-            EditorTarget.CreatingLinkNodeIndex = -1;
-            EditorTarget.CreatingFaceNodeIndices.Clear();
+            EditorGUILayout.HelpBox("Use 'Validate Node Connectivity' to check for nodes with too few or too many connections. Debug logs provide detailed operation feedback.", MessageType.Info);
+            EditorGUI.indentLevel--;
         }
 
         private void ApplyMaterialPresetToSelectedLinks(MaterialPreset preset)
         {
-            Undo.RecordObject(EditorTarget, "Apply Material Preset");
+            Undo.RecordObject(EditorTarget, $"Apply {preset.name} Preset");
             for (int i = 0; i < EditorTarget.SelectedLinkIndices.Count; i++)
             {
                 int idx = EditorTarget.SelectedLinkIndices[i];
@@ -1323,400 +1317,229 @@ namespace DynamicEngine
             EditorTarget.MinStretchFactor = preset.minStretchFactor;
             EditorTarget.ApplyStretchLimits();
             EditorTarget.SaveToTrussAsset();
+            if (EditorTarget.EnableDebugLogs)
+                Debug.Log($"Applied {preset.name} preset: compliance={preset.compliance}, damping={preset.damping}, nodeMass={preset.nodeMass}, maxStretchFactor={preset.maxStretchFactor}, minStretchFactor={preset.minStretchFactor}.", EditorTarget);
+        }
 
-            // Apply material preset to SoftBody
-            if (EditorTarget.SoftBodyReference != null)
+        private void OnSceneGUI()
+        {
+          if (EditorTarget == null) return;
+          if (Application.isPlaying) return;
+
+          Event e = Event.current;
+          HandlePosition = EditorTarget.GetSelectionCenter();
+          Tools.current = Tool.Move;
+
+          if (EditorTarget.IsCreatingNode)
+          {
+              HandleUtility.AddDefaultControl(GUIUtility.GetControlID(FocusType.Passive));
+              if (e.type == EventType.MouseDown && e.button == 0 && !e.alt)
+               {
+                  Ray ray = HandleUtility.GUIPointToWorldRay(e.mousePosition);
+                  if (Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity))
+                   {
+                     EditorTarget.CreateNode(hit.point);
+                     e.Use();
+                   }
+                }
+            }
+            else if (EditorTarget.CreatingLinkNodeIndex >= 0)
             {
-                var materialField = typeof(SoftBody).GetField("customMaterialProps", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                if (materialField != null)
+               HandleUtility.AddDefaultControl(GUIUtility.GetControlID(FocusType.Passive));
+               if (e.type == EventType.MouseDown && e.button == 0 && !e.alt)
+               {
+                  Ray ray = HandleUtility.GUIPointToWorldRay(e.mousePosition);
+                  var core = EditorTarget.GetSoftBodyCore();
+                  if (core != null)
+                  {
+                    int nodeIndex = core.FindClosestNodeToRay(ray, 100f);
+                    if (nodeIndex >= 0)
+                    {
+                        if (EditorTarget.CreatingLinkNodeIndex == 0)
+                        {
+                         EditorTarget.CreatingLinkNodeIndex = nodeIndex;
+                        }
+                        else
+                        {
+                          EditorTarget.CreateLink(EditorTarget.CreatingLinkNodeIndex, nodeIndex);
+                          EditorTarget.CreatingLinkNodeIndex = -1;
+                        }
+                        e.Use();
+                    }
+                  }
+                  else
+                  {
+                    Debug.LogWarning("Cannot create link: SoftBodyCore is null. Ensure a SoftBody component is attached.", EditorTarget);
+                  }
+                }
+            }
+            else if (EditorTarget.CreatingFaceNodeIndices.Count > 0)
+            {
+               HandleUtility.AddDefaultControl(GUIUtility.GetControlID(FocusType.Passive));
+               if (e.type == EventType.MouseDown && e.button == 0 && !e.alt)
+               {
+                  Ray ray = HandleUtility.GUIPointToWorldRay(e.mousePosition);
+                  var core = EditorTarget.GetSoftBodyCore();
+                  if (core != null)
+                    {
+                      int nodeIndex = core.FindClosestNodeToRay(ray, 100f);
+                      if (nodeIndex >= 0 && !EditorTarget.CreatingFaceNodeIndices.Contains(nodeIndex))
+                        {
+                          EditorTarget.CreatingFaceNodeIndices.Add(nodeIndex);
+                          if (EditorTarget.CreatingFaceNodeIndices.Count == 3)
+                            {
+                               EditorTarget.CreateFace(
+                               EditorTarget.CreatingFaceNodeIndices[0],
+                               EditorTarget.CreatingFaceNodeIndices[1],
+                               EditorTarget.CreatingFaceNodeIndices[2]);
+                               EditorTarget.CreatingFaceNodeIndices.Clear();
+                            }
+                            e.Use();
+                        }
+                    }
+                   else
+                    {
+                      Debug.LogWarning("Cannot create face: SoftBodyCore is null. Ensure a SoftBody component is attached.", EditorTarget);
+                    }
+                }
+            }
+            else if (EditorTarget.SelectedNodeIndices.Count > 0)
+            {
+               EditorGUI.BeginChangeCheck();
+               Vector3 newPosition = Handles.PositionHandle(HandlePosition, Quaternion.identity);
+               if (EditorGUI.EndChangeCheck())
                 {
-                    materialField.SetValue(EditorTarget.SoftBodyReference, new MaterialProperties(
-                        preset.nodeMass,
-                        preset.compliance,
-                        preset.damping,
-                        0.1f, // deformationScale (default)
-                        0.5f, // maxDeformation (default)
-                        preset.plasticityThreshold,
-                        preset.plasticityRate
-                    ));
-                    EditorTarget.SoftBodyReference.ApplyTrussAsset(EditorTarget.SoftBodyReference.GetTrussAsset());
-                    EditorUtility.SetDirty(EditorTarget.SoftBodyReference);
+                  Vector3 delta = newPosition - HandlePosition;
+                  EditorTarget.TransformSelectedNodes(delta);
+                } 
+            }
+
+            // Conditional drawing based on CurrentTab and creation mode
+            if (EditorTarget.CurrentTab == 1) // Nodes Tab
+            {
+              DrawNodes();
+            }
+            else if (EditorTarget.CurrentTab == 2) // Links Tab
+            {
+                if (EditorTarget.CreatingLinkNodeIndex >= 0)
+                {
+                  DrawNodes();
+                }
+                else
+                {
+                  DrawLinks();
+                }
+            }
+            else if (EditorTarget.CurrentTab == 3) // Faces Tab
+            {
+              if (EditorTarget.CreatingFaceNodeIndices.Count > 0)
+                {
+                   DrawNodes();
+                }
+                else
+                {
+                   DrawFaces();
+                }
+            }
+
+            DrawNodeConnections();
+        }
+
+        private void DrawNodes()
+        {
+            if (EditorTarget.Nodes == null) return;
+
+            for (int i = 0; i < EditorTarget.Nodes.Count; i++)
+            {
+                Vector3 worldPos = EditorTarget.transform.TransformPoint(EditorTarget.Nodes[i]);
+                Color color = EditorTarget.PinnedNodes.Contains(i) ? EditorTarget.PinnedNodeColor :
+                              EditorTarget.SelectedNodeIndices.Contains(i) ? EditorTarget.SelectedNodeColor : EditorTarget.NodeColor;
+                Handles.color = color;
+                Handles.SphereHandleCap(0, worldPos, Quaternion.identity, EditorTarget.NodeSize, EventType.Repaint);
+                if (EditorTarget.SelectedNodeIndices.Contains(i))
+                {
+                    Handles.Label(worldPos + Vector3.up * EditorTarget.NodeSize, $"Node {i}");
                 }
             }
         }
 
-        public void OnSceneGUI()
+        private void DrawLinks()
         {
-            if (Application.isPlaying) return; // Exit early during play mode
-
-            Event e = Event.current;
-            int controlID = GUIUtility.GetControlID(FocusType.Passive);
-            HandleUtility.AddDefaultControl(controlID);
-
-            if (EditorTarget.CurrentTab <= 2) // Nodes, Links, Faces
-            {
-                DrawNodesAndLinks();
-                DrawFaces();
-            }
-
-            if (EditorTarget.IsCreatingNode && EditorTarget.CurrentTab == 0)
-            {
-                HandleNodeCreation(e);
-            }
-            else if (EditorTarget.CreatingLinkNodeIndex >= 0 && EditorTarget.CurrentTab == 1)
-            {
-                HandleLinkCreation(e);
-            }
-            else if (EditorTarget.CreatingFaceNodeIndices.Count >= 1 && EditorTarget.CurrentTab == 2)
-            {
-                HandleFaceCreation(e);
-            }
-            else if (e.type == EventType.MouseDown && e.button == 0 && !EditorTarget.IsCreatingNode && EditorTarget.CreatingLinkNodeIndex == -1 && EditorTarget.CreatingFaceNodeIndices.Count == 0)
-            {
-                if (EditorTarget.CurrentTab == 0) HandleNodeSelection(e);
-                else if (EditorTarget.CurrentTab == 1) HandleLinkSelection(e);
-                else if (EditorTarget.CurrentTab == 2) HandleFaceSelection(e);
-            }
-
-            if (EditorTarget.SelectedNodeIndices.Count > 0 && EditorTarget.CurrentTab == 0)
-            {
-                HandleNodeTransform(e);
-            }
-
-            if (GUI.changed) EditorUtility.SetDirty(EditorTarget);
-            HandleUtility.Repaint();
-        }
-
-        private void DrawNodesAndLinks()
-        {
-            for (int i = 0; i < EditorTarget.Nodes.Count; i++)
-            {
-                Vector3 pos = EditorTarget.transform.TransformPoint(EditorTarget.Nodes[i]);
-                Handles.color = EditorTarget.PinnedNodes.Contains(i) ? EditorTarget.PinnedNodeColor : (EditorTarget.SelectedNodeIndices.Contains(i) ? EditorTarget.SelectedNodeColor : EditorTarget.NodeColor);
-                float size = HandleUtility.GetHandleSize(pos) * EditorTarget.NodeSize;
-                Handles.SphereHandleCap(0, pos, Quaternion.identity, size, EventType.Repaint);
-            }
+            if (EditorTarget.Links == null) return;
 
             for (int i = 0; i < EditorTarget.Links.Count; i++)
             {
-                Handles.color = EditorTarget.SelectedLinkIndices.Contains(i) ? EditorTarget.SelectedLinkColor : EditorTarget.LinkColor;
                 var link = EditorTarget.Links[i];
-                if (link.nodeA >= 0 && link.nodeA < EditorTarget.Nodes.Count && link.nodeB >= 0 && link.nodeB < EditorTarget.Nodes.Count)
+                if (link.nodeA < 0 || link.nodeA >= EditorTarget.Nodes.Count || link.nodeB < 0 || link.nodeB >= EditorTarget.Nodes.Count) continue;
+
+                Vector3 posA = EditorTarget.transform.TransformPoint(EditorTarget.Nodes[link.nodeA]);
+                Vector3 posB = EditorTarget.transform.TransformPoint(EditorTarget.Nodes[link.nodeB]);
+                Handles.color = EditorTarget.SelectedLinkIndices.Contains(i) ? EditorTarget.SelectedLinkColor : EditorTarget.LinkColor;
+                Handles.DrawLine(posA, posB, EditorTarget.LinkThickness);
+                if (EditorTarget.SelectedLinkIndices.Contains(i))
                 {
-                    Vector3 posA = EditorTarget.transform.TransformPoint(EditorTarget.Nodes[link.nodeA]);
-                    Vector3 posB = EditorTarget.transform.TransformPoint(EditorTarget.Nodes[link.nodeB]);
-                    Handles.DrawLine(posA, posB, EditorTarget.LinkThickness);
+                    Vector3 mid = (posA + posB) * 0.5f;
+                    Handles.Label(mid, $"Link {i}");
                 }
             }
         }
 
         private void DrawFaces()
         {
+            if (EditorTarget.Faces == null) return;
+
             for (int i = 0; i < EditorTarget.Faces.Count; i++)
             {
                 var face = EditorTarget.Faces[i];
-                if (face.nodeA >= 0 && face.nodeA < EditorTarget.Nodes.Count &&
-                    face.nodeB >= 0 && face.nodeB < EditorTarget.Nodes.Count &&
-                    face.nodeC >= 0 && face.nodeC < EditorTarget.Nodes.Count)
+                if (face.nodeA < 0 || face.nodeA >= EditorTarget.Nodes.Count ||
+                    face.nodeB < 0 || face.nodeB >= EditorTarget.Nodes.Count ||
+                    face.nodeC < 0 || face.nodeC >= EditorTarget.Nodes.Count) continue;
+
+                Vector3 posA = EditorTarget.transform.TransformPoint(EditorTarget.Nodes[face.nodeA]);
+                Vector3 posB = EditorTarget.transform.TransformPoint(EditorTarget.Nodes[face.nodeB]);
+                Vector3 posC = EditorTarget.transform.TransformPoint(EditorTarget.Nodes[face.nodeC]);
+
+                Handles.color = EditorTarget.SelectedFaceIndices.Contains(i) ? EditorTarget.SelectedFaceColor : EditorTarget.FaceColor;
+                Handles.DrawLine(posA, posB, EditorTarget.LinkThickness);
+                Handles.DrawLine(posB, posC, EditorTarget.LinkThickness);
+                Handles.DrawLine(posC, posA, EditorTarget.LinkThickness);
+
+                if (EditorTarget.SelectedFaceIndices.Contains(i))
                 {
-                    Handles.color = EditorTarget.SelectedFaceIndices.Contains(i) ? EditorTarget.SelectedFaceColor : EditorTarget.FaceColor;
-                    Vector3 posA = EditorTarget.transform.TransformPoint(EditorTarget.Nodes[face.nodeA]);
-                    Vector3 posB = EditorTarget.transform.TransformPoint(EditorTarget.Nodes[face.nodeB]);
-                    Vector3 posC = EditorTarget.transform.TransformPoint(EditorTarget.Nodes[face.nodeC]);
-                    Handles.DrawLine(posA, posB, 1f);
-                    Handles.DrawLine(posB, posC, 1f);
-                    Handles.DrawLine(posC, posA, 1f);
-                }
-            }
-        }
-
-        private void HandleNodeCreation(Event e)
-        {
-            Ray mouseRay = HandleUtility.GUIPointToWorldRay(e.mousePosition);
-            RaycastHit hit;
-            Vector3 position;
-            bool hitValidPosition = Physics.Raycast(mouseRay, out hit);
-
-            position = hitValidPosition ? hit.point : mouseRay.origin + mouseRay.direction * 10f;
-            Handles.color = hitValidPosition ? Color.green : Color.red;
-            Handles.SphereHandleCap(0, position, Quaternion.identity, EditorTarget.NodeSize, EventType.Repaint);
-
-            if (e.type == EventType.MouseDown && e.button == 0)
-            {
-                position = EditorTarget.transform.InverseTransformPoint(position);
-                EditorTarget.CreateNode(position);
-                e.Use();
-            }
-        }
-
-        private void HandleLinkCreation(Event e)
-        {
-            for (int i = 0; i < EditorTarget.Nodes.Count; i++)
-            {
-                Vector3 position = EditorTarget.transform.TransformPoint(EditorTarget.Nodes[i]);
-                Handles.color = Color.blue;
-                float size = HandleUtility.GetHandleSize(position) * EditorTarget.NodeSize * 2f;
-                Handles.SphereHandleCap(0, position, Quaternion.identity, size, EventType.Repaint);
-
-                if (e.type == EventType.MouseDown && e.button == 0)
-                {
-                    if (HandleUtility.DistanceToCircle(position, size) <= 0)
-                    {
-                        if (EditorTarget.CreatingLinkNodeIndex == 0)
-                        {
-                            EditorTarget.CreatingLinkNodeIndex = i;
-                        }
-                        else if (i != EditorTarget.CreatingLinkNodeIndex)
-                        {
-                            EditorTarget.CreateLink(EditorTarget.CreatingLinkNodeIndex, i);
-                            EditorTarget.CreatingLinkNodeIndex = -1;
-                            e.Use();
-                        }
-                    }
-                }
-            }
-
-            if (EditorTarget.CreatingLinkNodeIndex >= 0 && EditorTarget.CreatingLinkNodeIndex < EditorTarget.Nodes.Count)
-            {
-                Vector3 startPos = EditorTarget.transform.TransformPoint(EditorTarget.Nodes[EditorTarget.CreatingLinkNodeIndex]);
-                Ray mouseRay = HandleUtility.GUIPointToWorldRay(e.mousePosition);
-                Vector3 endPos = mouseRay.origin + mouseRay.direction * 10f;
-                Handles.color = Color.red;
-                Handles.DrawLine(startPos, endPos, 2f);
-            }
-        }
-
-        private void HandleFaceCreation(Event e)
-        {
-            if (EditorTarget == null || EditorTarget.Nodes == null || EditorTarget.CreatingFaceNodeIndices == null)
-            {
-                return;
-            }
-
-            for (int i = 0; i < EditorTarget.Nodes.Count; i++)
-            {
-                Vector3 position = EditorTarget.transform.TransformPoint(EditorTarget.Nodes[i]);
-                Handles.color = Color.blue;
-                float size = HandleUtility.GetHandleSize(position) * EditorTarget.NodeSize * 2f;
-
-                Handles.BeginGUI();
-                try
-                {
-                    Handles.SphereHandleCap(0, position, Quaternion.identity, size, EventType.Repaint);
-                }
-                finally
-                {
-                    Handles.EndGUI();
-                }
-
-                if (e.type == EventType.MouseDown && e.button == 0)
-                {
-                    if (HandleUtility.DistanceToCircle(position, size) <= 0)
-                    {
-                        if (!EditorTarget.CreatingFaceNodeIndices.Contains(i))
-                        {
-                            EditorTarget.CreatingFaceNodeIndices.Add(i);
-                            if (EditorTarget.CreatingFaceNodeIndices.Count == 3)
-                            {
-                                if (EditorTarget.CreatingFaceNodeIndices.All(idx => idx >= 0 && idx < EditorTarget.Nodes.Count))
-                                {
-                                    EditorTarget.CreateFace(
-                                        EditorTarget.CreatingFaceNodeIndices[0],
-                                        EditorTarget.CreatingFaceNodeIndices[1],
-                                        EditorTarget.CreatingFaceNodeIndices[2]
-                                    );
-                                }
-                                else
-                                {
-                                    Debug.LogWarning("Invalid node indices selected for face creation.", EditorTarget);
-                                }
-                                EditorTarget.CreatingFaceNodeIndices.Clear();
-                                e.Use();
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (EditorTarget.CreatingFaceNodeIndices.Count >= 1)
-            {
-                int firstIndex = EditorTarget.CreatingFaceNodeIndices[0];
-                if (firstIndex < 0 || firstIndex >= EditorTarget.Nodes.Count)
-                {
-                    EditorTarget.CreatingFaceNodeIndices.Clear();
-                    return;
-                }
-
-                Vector3 startPos = EditorTarget.transform.TransformPoint(EditorTarget.Nodes[firstIndex]);
-
-                Handles.BeginGUI();
-                try
-                {
-                    if (EditorTarget.CreatingFaceNodeIndices.Count == 2)
-                    {
-                        int secondIndex = EditorTarget.CreatingFaceNodeIndices[1];
-                        if (secondIndex >= 0 && secondIndex < EditorTarget.Nodes.Count)
-                        {
-                            Vector3 midPos = EditorTarget.transform.TransformPoint(EditorTarget.Nodes[secondIndex]);
-                            Handles.color = Color.red;
-                            Handles.DrawLine(startPos, midPos, 2f);
-
-                            Ray mouseRay = HandleUtility.GUIPointToWorldRay(e.mousePosition);
-                            Vector3 endPos = mouseRay.origin + mouseRay.direction * 10f;
-                            Handles.DrawLine(midPos, endPos, 2f);
-                        }
-                        else
-                        {
-                            EditorTarget.CreatingFaceNodeIndices.RemoveAt(1);
-                        }
-                    }
-                    else
-                    {
-                        Ray mouseRay = HandleUtility.GUIPointToWorldRay(e.mousePosition);
-                        Vector3 endPos = mouseRay.origin + mouseRay.direction * 10f;
-                        Handles.color = Color.red;
-                        Handles.DrawLine(startPos, endPos, 2f);
-                    }
-                }
-                finally
-                {
-                    Handles.EndGUI();
-                }
-            }
-        }
-
-        private void HandleNodeSelection(Event e)
-        {
-            for (int i = 0; i < EditorTarget.Nodes.Count; i++)
-            {
-                Vector3 pos = EditorTarget.transform.TransformPoint(EditorTarget.Nodes[i]);
-                float size = HandleUtility.GetHandleSize(pos) * EditorTarget.NodeSize;
-                if (HandleUtility.DistanceToCircle(pos, size) <= 0)
-                {
-                    Undo.RecordObject(EditorTarget, "Select Node");
-                    if (e.control)
-                    {
-                        if (EditorTarget.SelectedNodeIndices.Contains(i))
-                            EditorTarget.SelectedNodeIndices.Remove(i);
-                        else
-                            EditorTarget.SelectedNodeIndices.Add(i);
-                    }
-                    else
-                    {
-                        EditorTarget.SelectedNodeIndices.Clear();
-                        EditorTarget.SelectedNodeIndices.Add(i);
-                    }
-                    EditorTarget.SelectedLinkIndices.Clear();
-                    EditorTarget.SelectedFaceIndices.Clear();
-                    EditorUtility.SetDirty(EditorTarget);
-                    e.Use();
-                    break;
-                }
-            }
-        }
-
-        private void HandleLinkSelection(Event e)
-        {
-            for (int i = 0; i < EditorTarget.Links.Count; i++)
-            {
-                var link = EditorTarget.Links[i];
-                if (link.nodeA >= 0 && link.nodeA < EditorTarget.Nodes.Count && link.nodeB >= 0 && link.nodeB < EditorTarget.Nodes.Count)
-                {
-                    Vector3 posA = EditorTarget.transform.TransformPoint(EditorTarget.Nodes[link.nodeA]);
-                    Vector3 posB = EditorTarget.transform.TransformPoint(EditorTarget.Nodes[link.nodeB]);
-                    Vector3 guiPointA = HandleUtility.WorldToGUIPoint(posA);
-                    Vector3 guiPointB = HandleUtility.WorldToGUIPoint(posB);
-                    if (HandleUtility.DistancePointToLineSegment(e.mousePosition, guiPointA, guiPointB) < 3f)
-                    {
-                        Undo.RecordObject(EditorTarget, "Select Link");
-                        if (e.control)
-                        {
-                            if (EditorTarget.SelectedLinkIndices.Contains(i))
-                                EditorTarget.SelectedLinkIndices.Remove(i);
-                            else
-                                EditorTarget.SelectedLinkIndices.Add(i);
-                        }
-                        else
-                        {
-                            EditorTarget.SelectedLinkIndices.Clear();
-                            EditorTarget.SelectedLinkIndices.Add(i);
-                        }
-                        EditorTarget.SelectedNodeIndices.Clear();
-                        EditorTarget.SelectedFaceIndices.Clear();
-                        EditorUtility.SetDirty(EditorTarget);
-                        e.Use();
-                        break;
-                    }
-                }
-            }
-        }
-
-        private void HandleFaceSelection(Event e)
-        {
-            for (int i = 0; i < EditorTarget.Faces.Count; i++)
-            {
-                var face = EditorTarget.Faces[i];
-                if (face.nodeA >= 0 && face.nodeA < EditorTarget.Nodes.Count && face.nodeB >= 0 && face.nodeB < EditorTarget.Nodes.Count && face.nodeC >= 0 && face.nodeC < EditorTarget.Nodes.Count)
-                {
-                    Vector3 posA = EditorTarget.transform.TransformPoint(EditorTarget.Nodes[face.nodeA]);
-                    Vector3 posB = EditorTarget.transform.TransformPoint(EditorTarget.Nodes[face.nodeB]);
-                    Vector3 posC = EditorTarget.transform.TransformPoint(EditorTarget.Nodes[face.nodeC]);
                     Vector3 centroid = (posA + posB + posC) / 3f;
-                    Vector3 guiCentroid = HandleUtility.WorldToGUIPoint(centroid);
-                    float size = HandleUtility.GetHandleSize(centroid) * EditorTarget.NodeSize * 2f;
-                    if (HandleUtility.DistanceToCircle(centroid, size) <= 0)
-                    {
-                        Undo.RecordObject(EditorTarget, "Select Face");
-                        if (e.control)
-                        {
-                            if (EditorTarget.SelectedFaceIndices.Contains(i))
-                                EditorTarget.SelectedFaceIndices.Remove(i);
-                            else
-                                EditorTarget.SelectedFaceIndices.Add(i);
-                        }
-                        else
-                        {
-                            EditorTarget.SelectedFaceIndices.Clear();
-                            EditorTarget.SelectedFaceIndices.Add(i);
-                        }
-                        EditorTarget.SelectedNodeIndices.Clear();
-                        EditorTarget.SelectedLinkIndices.Clear();
-                        EditorUtility.SetDirty(EditorTarget);
-                        e.Use();
-                        break;
-                    }
+                    Handles.Label(centroid, $"Face {i}");
                 }
             }
         }
 
-        private void HandleNodeTransform(Event e)
+        private void DrawNodeConnections()
         {
-            EditorTarget.SelectedNodeIndices.RemoveAll(i => i < 0 || i >= EditorTarget.Nodes.Count);
-            if (EditorTarget.SelectedNodeIndices.Count == 0) return;
+            NodeConnections.Clear();
+            for (int i = 0; i < EditorTarget.Nodes.Count; i++)
+                NodeConnections[i] = 0;
 
-            Vector3 pos = EditorTarget.transform.TransformPoint(EditorTarget.GetSelectionCenter());
-            if (!IsDragging)
+            foreach (var link in EditorTarget.Links)
             {
-                HandlePosition = pos;
-            }
-
-            EditorGUI.BeginChangeCheck();
-            Vector3 newPos = Handles.PositionHandle(pos, Quaternion.identity);
-            if (EditorGUI.EndChangeCheck())
-            {
-                IsDragging = true;
-                Vector3 delta = EditorTarget.transform.InverseTransformPoint(newPos) - EditorTarget.transform.InverseTransformPoint(pos);
-                EditorTarget.TransformSelectedNodes(delta);
-                HandlePosition = newPos;
-            }
-            else if (e.type == EventType.MouseUp)
-            {
-                IsDragging = false;
+                if (link.nodeA >= 0 && link.nodeA < EditorTarget.Nodes.Count) NodeConnections[link.nodeA]++;
+                if (link.nodeB >= 0 && link.nodeB < EditorTarget.Nodes.Count) NodeConnections[link.nodeB]++;
             }
         }
     }
 #endif
 }
+[System.Serializable]
+public struct MaterialPreset
+{
+    public string name;
+    public float compliance;
+    public float damping;
+    public float nodeMass;
+    public float maxStretchFactor;
+    public float minStretchFactor;
+    public float plasticityThreshold;
+    public float plasticityRate;
+}
+#endregion
 
 [System.Serializable]
 public struct Link
@@ -1735,17 +1558,3 @@ public struct Face
     public int nodeB;
     public int nodeC;
 }
-
-[System.Serializable]
-public struct MaterialPreset
-{
-    public string name;
-    public float compliance;
-    public float damping;
-    public float nodeMass;
-    public float maxStretchFactor;
-    public float minStretchFactor;
-    public float plasticityThreshold;
-    public float plasticityRate;
-}
-#endregion
