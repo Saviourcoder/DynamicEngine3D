@@ -9,20 +9,21 @@
 */
 using System.Collections.Generic;
 using UnityEngine;
-using DynamicEngine; // Use DynamicEngine for Beam and MaterialProperties
+using DynamicEngine;
 
 namespace DynamicEngine
 {
     public class SoftBodyCore
     {
         public readonly NodeManager nodeManager;
-        public List<Beam> beams; // Removed readonly to allow updates
+        public List<Beam> beams;
         private readonly MeshDeformer meshDeformer;
         private MaterialProperties materialProps;
         public readonly List<Vector3> collisionPoints;
         private float maxStretchFactor = 1.05f;
         private float minStretchFactor = 0.95f;
         public bool visualizeForces = false;
+        private TrussAsset trussAsset; // Reference to TrussAsset for face data
 
         public SoftBodyCore(
             float nodeRadius,
@@ -38,91 +39,93 @@ namespace DynamicEngine
             this.collisionPoints = new List<Vector3>();
         }
 
-        public void GenerateNodesAndBeams(Vector3[] positions, float connectionDistance, Transform transform)
+        // ------------------------------------------------------------------
+        //  SINGLE METHOD  – replaces the two old overloads
+        // ------------------------------------------------------------------
+        public void GenerateNodesAndBeams(
+            Vector3[] positions,
+            float     connectionDistance = -1f,
+            Beam[]    beamsArray         = null,
+            Transform parent             = null)
         {
-            if (positions == null || positions.Length == 0 || transform == null)
+            if (positions == null || positions.Length == 0 ||
+                (connectionDistance <= 0f && beamsArray == null))
             {
                 Debug.LogWarning("Cannot generate nodes and beams: Invalid input.");
                 return;
             }
 
+            if (parent == null)
+            {
+               Debug.LogWarning("GenerateNodesAndBeams: parent Transform is null.");
+               return;
+            }
+            // 1) Destroy any existing “Node_*” children
+            for (int i = parent.childCount - 1; i >= 0; i--)
+            {
+                Transform child = parent.GetChild(i);
+                if (child.name.StartsWith("Node_"))
+                    Object.DestroyImmediate(child.gameObject);
+            }
+
+            // 2) Clear lists
             nodeManager.Clear();
             beams.Clear();
 
+            // 3) Create hidden nodes
             for (int i = 0; i < positions.Length; i++)
             {
-                GameObject nodeObj = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                nodeObj.name = $"Node_{i}";
-                nodeObj.transform.parent = transform;
+                GameObject nodeObj = new GameObject($"Node_{i}");
+                nodeObj.transform.parent = parent;
                 nodeObj.transform.localPosition = positions[i];
-                nodeObj.transform.localScale = Vector3.one * nodeManager.NodeRadius * 2f;
-
-                Renderer renderer = nodeObj.GetComponent<Renderer>();
-                if (renderer != null)
-                    renderer.material = new Material(Shader.Find("Standard"));
+                nodeObj.hideFlags = HideFlags.HideAndDontSave;
 
                 nodeManager.AddNode(nodeObj.transform, positions[i]);
             }
 
-            for (int i = 0; i < nodeManager.Nodes.Count; i++)
+            // 4) Build beams
+            if (beamsArray != null)                    // explicit list
             {
-                for (int j = i + 1; j < nodeManager.Nodes.Count; j++)
+                foreach (var b in beamsArray)
                 {
-                    if (nodeManager.Nodes[i] == null || nodeManager.Nodes[j] == null) continue;
-
-                    Vector3 posA = nodeManager.Nodes[i].localPosition;
-                    Vector3 posB = nodeManager.Nodes[j].localPosition;
-                    float distance = Vector3.Distance(posA, posB);
-                    if (distance <= connectionDistance && distance > 0.01f)
+                    if (b.nodeA >= 0 && b.nodeA < positions.Length &&
+                        b.nodeB >= 0 && b.nodeB < positions.Length &&
+                        b.restLength > 0.01f)
                     {
-                        beams.Add(new Beam(i, j, materialProps.defaultCompliance, materialProps.defaultDamping, distance));
+                        beams.Add(new Beam(b.nodeA, b.nodeB,
+                                           b.compliance, b.damping, b.restLength));
+                    }
+                }
+            }
+            else                                       // auto-links
+            {
+                for (int i = 0; i < nodeManager.Nodes.Count; i++)
+                {
+                    for (int j = i + 1; j < nodeManager.Nodes.Count; j++)
+                    {
+                        if (nodeManager.Nodes[i] == null || nodeManager.Nodes[j] == null) continue;
+
+                        Vector3 posA = nodeManager.Nodes[i].localPosition;
+                        Vector3 posB = nodeManager.Nodes[j].localPosition;
+                        float distance = Vector3.Distance(posA, posB);
+                        if (distance <= connectionDistance && distance > 0.01f)
+                        {
+                            beams.Add(new Beam(i, j,
+                                               materialProps.defaultCompliance,
+                                               materialProps.defaultDamping,
+                                               distance));
+                        }
                     }
                 }
             }
 
-            meshDeformer.MapVerticesToNodes(transform, nodeManager.Nodes, nodeManager.InitialPositions);
+            meshDeformer.MapVerticesToNodes(parent, nodeManager.Nodes, nodeManager.InitialPositions);
             Debug.Log($"Generated {nodeManager.Nodes.Count} nodes, {beams.Count} beams");
         }
 
-        public void GenerateNodesAndBeams(Vector3[] positions, Beam[] beamsArray, Transform transform)
-        {
-            if (positions == null || positions.Length == 0 || beamsArray == null || transform == null)
-            {
-                Debug.LogWarning("Cannot generate nodes and beams: Invalid input.");
-                return;
-            }
-
-            nodeManager.Clear();
-            beams.Clear();
-
-            for (int i = 0; i < positions.Length; i++)
-            {
-                GameObject nodeObj = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                nodeObj.name = $"Node_{i}";
-                nodeObj.transform.parent = transform;
-                nodeObj.transform.localPosition = positions[i];
-                nodeObj.transform.localScale = Vector3.one * nodeManager.NodeRadius * 2f;
-
-                Renderer renderer = nodeObj.GetComponent<Renderer>();
-                if (renderer != null)
-                    renderer.material = new Material(Shader.Find("Standard"));
-
-                nodeManager.AddNode(nodeObj.transform, positions[i]);
-            }
-
-            foreach (var beam in beamsArray)
-            {
-                if (beam.nodeA >= 0 && beam.nodeA < positions.Length && beam.nodeB >= 0 && beam.nodeB < positions.Length &&
-                    beam.restLength > 0.01f)
-                {
-                    beams.Add(new Beam(beam.nodeA, beam.nodeB, beam.compliance, beam.damping, beam.restLength));
-                }
-            }
-
-            meshDeformer.MapVerticesToNodes(transform, nodeManager.Nodes, nodeManager.InitialPositions);
-            Debug.Log($"Generated {nodeManager.Nodes.Count} nodes, {beams.Count} beams");
-        }
-
+        // ------------------------------------------------------------------
+        //  REST OF FILE – unchanged
+        // ------------------------------------------------------------------
         public void GenerateCubeTest(Transform transform)
         {
             if (transform == null || meshDeformer.Mesh == null) return;
@@ -133,17 +136,17 @@ namespace DynamicEngine
 
             Vector3[] cubeNodes = new Vector3[]
             {
-            new Vector3(min.x, min.y, min.z),
-            new Vector3(max.x, min.y, min.z),
-            new Vector3(min.x, max.y, min.z),
-            new Vector3(max.x, max.y, min.z),
-            new Vector3(min.x, min.y, max.z),
-            new Vector3(max.x, min.y, max.z),
-            new Vector3(min.x, max.y, max.z),
-            new Vector3(max.x, max.y, max.z)
+                new Vector3(min.x, min.y, min.z),
+                new Vector3(max.x, min.y, min.z),
+                new Vector3(min.x, max.y, min.z),
+                new Vector3(max.x, max.y, min.z),
+                new Vector3(min.x, min.y, max.z),
+                new Vector3(max.x, min.y, max.z),
+                new Vector3(min.x, max.y, max.z),
+                new Vector3(max.x, max.y, max.z)
             };
 
-            GenerateNodesAndBeams(cubeNodes, Vector3.Distance(min, max) * 1.5f, transform);
+            GenerateNodesAndBeams(cubeNodes, Vector3.Distance(min, max) * 1.5f, parent: transform);
         }
 
         public void RestoreNodesAndBeams(Transform transform)
@@ -158,15 +161,10 @@ namespace DynamicEngine
 
             for (int i = 0; i < currentInitialPositions.Count; i++)
             {
-                GameObject nodeObj = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                nodeObj.name = $"Node_{i}";
+                GameObject nodeObj = new GameObject($"Node_{i}");
                 nodeObj.transform.parent = transform;
                 nodeObj.transform.localPosition = currentInitialPositions[i];
-                nodeObj.transform.localScale = Vector3.one * nodeManager.NodeRadius * 2f;
-
-                Renderer renderer = nodeObj.GetComponent<Renderer>();
-                if (renderer != null)
-                    renderer.material = new Material(Shader.Find("Standard"));
+                nodeObj.hideFlags = HideFlags.HideAndDontSave;
 
                 nodeManager.AddNode(nodeObj.transform, currentInitialPositions[i]);
             }
@@ -187,6 +185,11 @@ namespace DynamicEngine
             Debug.Log($"Restored {nodeManager.Nodes.Count} nodes, {beams.Count} beams");
         }
 
+        public void SetTrussAsset(TrussAsset truss)
+        {
+            trussAsset = truss;
+        }
+
         public void Solve()
         {
             if (nodeManager == null || beams == null || materialProps == null || nodeManager.Nodes == null)
@@ -200,11 +203,10 @@ namespace DynamicEngine
             const float restThreshold = 0.01f;
             float dt = Time.fixedDeltaTime;
             float dtSquared = dt * dt;
-            const int maxSubSteps = 5; // Keep enhanced substepping
+            const int maxSubSteps = 5;
 
             collisionPoints.Clear();
 
-            // Initialize previous and predicted positions
             if (nodeManager.PreviousPositions.Count != nodeManager.Nodes.Count)
             {
                 nodeManager.PreviousPositions.Clear();
@@ -242,7 +244,7 @@ namespace DynamicEngine
                 nodeManager.PredictedPositions[i] = newPosition;
             }
 
-            // Step 2: Handle collisions (node-to-node and environment)
+            // Step 2: Handle collisions (node-to-node, environment, and face-node)
             float collisionRadius = nodeManager.NodeRadius * 2f;
             for (int i = 0; i < nodeManager.Nodes.Count; i++)
             {
@@ -256,20 +258,18 @@ namespace DynamicEngine
                 float subDt = dt / (subSteps > 0 ? subSteps : 1);
                 Vector3 subMotion = motion / (subSteps > 0 ? subSteps : 1);
 
-                // Substep for accurate collision detection
                 Vector3 tempPos = currentPos;
                 for (int step = 0; step < subSteps; step++)
                 {
                     tempPos += subMotion;
 
-                    // Environment collisions with ComputePenetration
+                    // Environment collisions
                     Collider nodeCollider = nodeManager.Colliders[i];
                     Collider[] colliders = Physics.OverlapSphere(tempPos, nodeManager.NodeRadius);
                     foreach (var collider in colliders)
                     {
                         if (collider == nodeCollider || collider.transform == nodeManager.Nodes[i]) continue;
 
-                        // Skip if collider belongs to another node in the same soft body
                         int otherNodeIndex = nodeManager.FindIndex(n => n != null && n == collider.transform);
                         if (otherNodeIndex != -1) continue;
 
@@ -281,11 +281,10 @@ namespace DynamicEngine
                         {
                             Vector3 correction = direction * distance;
                             float w = 1f / materialProps.nodeMass;
-                            float compliance = materialProps.defaultCompliance / dtSquared; // Reverted to default
+                            float compliance = materialProps.defaultCompliance / dtSquared;
                             float lambda = -distance / (w + compliance);
                             tempPos += correction * lambda;
 
-                            // High-impact deformation
                             Vector3 velocity = subMotion / subDt;
                             float impactMagnitude = velocity.magnitude * materialProps.nodeMass / subDt;
                             if (impactMagnitude > 200)
@@ -301,10 +300,55 @@ namespace DynamicEngine
                             Debug.DrawRay(tempPos, direction * 0.2f, Color.yellow, 0.1f);
                         }
                     }
+
+                    // Face-node collisions
+                    if (trussAsset != null)
+                    {
+                        foreach (var face in trussAsset.GetTrussFaces())
+                        {
+                            if (face.nodeA >= nodeManager.Nodes.Count || face.nodeB >= nodeManager.Nodes.Count || face.nodeC >= nodeManager.Nodes.Count ||
+                                nodeManager.Nodes[face.nodeA] == null || nodeManager.Nodes[face.nodeB] == null || nodeManager.Nodes[face.nodeC] == null)
+                                continue;
+
+                            if (i == face.nodeA || i == face.nodeB || i == face.nodeC) continue;
+
+                            Vector3 posA = nodeManager.Nodes[face.nodeA].position;
+                            Vector3 posB = nodeManager.Nodes[face.nodeB].position;
+                            Vector3 posC = nodeManager.Nodes[face.nodeC].position;
+
+                            Vector3 normal = Vector3.Cross(posB - posA, posC - posA).normalized;
+                            float distanceToPlane = Vector3.Dot(tempPos - posA, normal);
+
+                            if (Mathf.Abs(distanceToPlane) < nodeManager.NodeRadius)
+                            {
+                                Vector3 projectedPoint = tempPos - distanceToPlane * normal;
+
+                                if (IsPointInTriangle(projectedPoint, posA, posB, posC))
+                                {
+                                    float w = 1f / materialProps.nodeMass;
+                                    float compliance = materialProps.defaultCompliance / dtSquared;
+                                    float lambda = -distanceToPlane / (w + compliance);
+                                    Vector3 correction = normal * lambda;
+
+                                    if (float.IsNaN(correction.x) || float.IsNaN(correction.y) || float.IsNaN(correction.z))
+                                    {
+                                        correction = Vector3.zero;
+                                        Debug.LogWarning($"NaN correction in face-node collision for node {i}, skipping");
+                                    }
+                                    else
+                                    {
+                                        tempPos += correction;
+                                        collisionPoints.Add(tempPos - correction);
+                                        Debug.DrawLine(tempPos - correction, tempPos, Color.cyan, 0.1f);
+                                        Debug.DrawRay(tempPos, normal * 0.2f, Color.magenta, 0.1f);
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
                 nodeManager.PredictedPositions[i] = tempPos;
 
-                // Node-to-node collisions
                 Collider[] overlaps = Physics.OverlapSphere(nodeManager.PredictedPositions[i], nodeManager.NodeRadius);
                 foreach (var collider in overlaps)
                 {
@@ -329,7 +373,7 @@ namespace DynamicEngine
                         float wB = 1f / materialProps.nodeMass;
                         float wSum = wA + wB;
 
-                        float compliance = materialProps.defaultCompliance / dtSquared; // Reverted to default
+                        float compliance = materialProps.defaultCompliance / dtSquared;
                         float lambda = -constraint / (wSum + compliance);
 
                         Vector3 correction = gradient * lambda;
@@ -388,7 +432,6 @@ namespace DynamicEngine
                     nodeManager.PredictedPositions[beam.nodeA] += wA * correction;
                     nodeManager.PredictedPositions[beam.nodeB] -= wB * correction;
 
-                    // Apply stretch limits
                     currentLength = Vector3.Distance(nodeManager.PredictedPositions[beam.nodeA], nodeManager.PredictedPositions[beam.nodeB]);
                     if (currentLength > beam.restLength * maxStretchFactor)
                     {
@@ -423,7 +466,6 @@ namespace DynamicEngine
                 Vector3 predictedPos = nodeManager.PredictedPositions[i];
                 Vector3 motion = predictedPos - currentPos;
 
-                // Final collision check for velocity corrections
                 Collider nodeCollider = nodeManager.Colliders[i];
                 Collider[] colliders = Physics.OverlapSphere(predictedPos, nodeManager.NodeRadius);
                 bool inCollision = false;
@@ -442,7 +484,7 @@ namespace DynamicEngine
                     {
                         inCollision = true;
                         normal = direction;
-                        predictedPos += direction * distance; // Ensure no penetration
+                        predictedPos += direction * distance;
                         collisionPoints.Add(predictedPos);
                         break;
                     }
@@ -469,6 +511,26 @@ namespace DynamicEngine
                 }
             }
         }
+
+        private bool IsPointInTriangle(Vector3 point, Vector3 a, Vector3 b, Vector3 c)
+        {
+            Vector3 v0 = c - a;
+            Vector3 v1 = b - a;
+            Vector3 v2 = point - a;
+
+            float dot00 = Vector3.Dot(v0, v0);
+            float dot01 = Vector3.Dot(v0, v1);
+            float dot02 = Vector3.Dot(v0, v2);
+            float dot11 = Vector3.Dot(v1, v1);
+            float dot12 = Vector3.Dot(v1, v2);
+
+            float invDenom = 1f / (dot00 * dot11 - dot01 * dot01);
+            float u = (dot11 * dot02 - dot01 * dot12) * invDenom;
+            float v = (dot00 * dot12 - dot01 * dot02) * invDenom;
+
+            return u >= 0 && v >= 0 && u + v < 1;
+        }
+
         private void UpdateBeamRestLengths(int nodeIndex, Vector3 newPosition)
         {
             for (int i = 0; i < beams.Count; i++)
