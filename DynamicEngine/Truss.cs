@@ -27,9 +27,9 @@ namespace DynamicEngine
             [Tooltip("Index of the second node (must be valid in Node Positions)")]
             public int nodeB;
             [Tooltip("Compliance (inverse stiffness) for the beam (lower = stiffer)")]
-            public float compliance = 1e-3f; // Aligned with Rubber
+            public float compliance = 1e-3f;
             [Tooltip("Damping factor for the beam")]
-            public float damping = 0.3f; // Aligned with Rubber
+            public float damping = 0.3f;
             [Tooltip("Rest length of the beam (set automatically if 0)")]
             public float restLength;
 
