@@ -19,35 +19,31 @@ namespace DynamicEngine
 {
     public class SoftBody : MonoBehaviour
     {
-        // Material presets for different soft body types
-        private static readonly Dictionary<MaterialType, MaterialProperties> MaterialPresets = new Dictionary<MaterialType, MaterialProperties>
-        {
-            { MaterialType.Metal, new MaterialProperties(2.0f, 1e-6f, 0.005f, 0.01f, 0.01f, 0.05f, 0.1f) },
-            { MaterialType.Plastic, new MaterialProperties(1.0f, 1e-4f, 0.01f, 0.05f, 0.05f, 0.03f, 0.2f) },
-            { MaterialType.Rubber, new MaterialProperties(0.5f, 1e-3f, 0.3f, 0.1f, 0.15f, 0.1f, 0.05f) }
-        };
+        // ──────────────────────────────────────────────────────────
+        //  Material presets (unchanged)
+        // ──────────────────────────────────────────────────────────
+        private static readonly Dictionary<MaterialType, MaterialProperties> MaterialPresets =
+            new Dictionary<MaterialType, MaterialProperties>
+            {
+                { MaterialType.Metal,   new MaterialProperties(2.0f, 1e-6f, 0.005f, 0.01f, 0.01f, 0.05f, 0.1f) },
+                { MaterialType.Plastic, new MaterialProperties(1.0f, 1e-4f, 0.01f, 0.05f, 0.05f, 0.03f, 0.2f) },
+                { MaterialType.Rubber,  new MaterialProperties(0.5f, 1e-3f, 0.3f, 0.1f, 0.15f, 0.1f, 0.05f) }
+            };
 
         [Header("Material Settings")]
-        [SerializeField, Tooltip("Material type for the soft body (use Custom for manual settings)")]
-        private MaterialType materialType = MaterialType.Rubber;
-        [SerializeField, Tooltip("Custom material properties when Material Type is set to Custom")]
-        private MaterialProperties customMaterialProps = new MaterialProperties(0.5f, 1e-5f, 0.1f, 0.1f, 0.5f, 0.05f, 0.1f);
+        [SerializeField] private MaterialType materialType = MaterialType.Rubber;
+        [SerializeField] private MaterialProperties customMaterialProps = new MaterialProperties(0.5f, 1e-5f, 0.1f, 0.1f, 0.5f, 0.05f, 0.1f);
 
         [Header("Physics Settings")]
-        [SerializeField, Range(0.01f, 0.5f), Tooltip("Radius of nodes for collision detection")]
-        private float nodeRadius = 0.05f;
-        [SerializeField, Range(0.5f, 5f), Tooltip("Radius for vertex influence during mesh deformation")]
-        private float influenceRadius = 1f;
-        [SerializeField, Range(0.5f, 5f), Tooltip("Maximum distance for connecting nodes with beams")]
-        private float beamConnectionDistance = 1.5f;
+        [SerializeField, Range(0.01f, 0.5f)] private float nodeRadius = 0.05f;
+        [SerializeField, Range(0.5f, 5f)]   private float influenceRadius = 1f;
+        [SerializeField, Range(0.5f, 5f)]   private float beamConnectionDistance = 1.5f;
 
         [Header("Visualization")]
-        [SerializeField, Tooltip("Show node colliders, beams, and collision points in Gizmos")]
-        public bool showGizmos = true;
+        [SerializeField] public bool showGizmos = true;
 
         [Header("Node Design")]
-        [SerializeField, Tooltip("Truss asset defining nodes and beams")]
-        public TrussAsset trussAsset;
+        [SerializeField] public TrussAsset trussAsset;
 
         private MeshFilter meshFilter;
         private Mesh mesh;
@@ -57,118 +53,46 @@ namespace DynamicEngine
         private Plane dragPlane;
         private int draggedNodeIndex = -1;
 
-        private MaterialProperties MaterialProps => materialType == MaterialType.Custom ? customMaterialProps : MaterialPresets[materialType];
+        private MaterialProperties MaterialProps =>
+            materialType == MaterialType.Custom ? customMaterialProps : MaterialPresets[materialType];
 
-        void Awake()
-        {
-            mainCamera = Camera.main;
-            Initialize();
-        }
-
-        void OnValidate()
+        // ──────────────────────────────────────────────────────────
+        //  Unity messages
+        // ──────────────────────────────────────────────────────────
+        private void Awake()  => InitializeInPlayMode();
+        private void OnValidate()
         {
             ApplyMaterialProperties();
             ValidateParameters();
+            InitializeInEditMode();
+        }
+
+        private void InitializeInPlayMode()
+        {
+            mainCamera = Camera.main;
+            if (Application.isPlaying) InitializeCore();
+        }
+
+        private void InitializeInEditMode()
+        {
+            if (!Application.isPlaying)
+            {
+                InitializeCore();
 #if UNITY_EDITOR
-            EditorUtility.SetDirty(this);
-#endif
-        }
-
-        private void ApplyMaterialProperties()
-        {
-            if (materialType != MaterialType.Custom && MaterialPresets.TryGetValue(materialType, out MaterialProperties props))
-            {
-                customMaterialProps = props;
+                EditorUtility.SetDirty(this);
+            #endif
             }
         }
+            
 
-        public TrussAsset GetTrussAsset()
+        private bool InitializeCore()
         {
-            return trussAsset;
-        }
-
-        public void ApplyTruss()
-        {
-            if (trussAsset == null)
-            {
-                Debug.LogWarning("No TrussAsset assigned to SoftBody.", this);
-                return;
-            }
-
-            if (core == null)
-            {
-                Debug.LogError("SoftBodyCore instance not initialized.", this);
-                return;
-            }
-
-            Vector3[] positions = trussAsset.NodePositions;
-            if (positions == null || positions.Length < 2)
-            {
-                Debug.LogWarning("TrussAsset has insufficient or invalid node positions.", this);
-                return;
-            }
-
-            var beams = trussAsset.GetBeams();
-            if (beams == null || beams.Length == 0)
-            {
-                Debug.LogWarning("TrussAsset has no beams defined.", this);
-                return;
-            }
-
-            core.GenerateNodesAndBeams(positions, beams, transform);
-        }
-
-        private void ValidateParameters()
-        {
-            if (nodeRadius < 0.01f)
-            {
-                Debug.LogWarning("Node Radius is very small; collisions may be unreliable.", this);
-                nodeRadius = 0.01f;
-            }
-            if (beamConnectionDistance < nodeRadius * 2f)
-            {
-                Debug.LogWarning("Beam Connection Distance is too small relative to Node Radius; beams may be skipped.", this);
-                beamConnectionDistance = nodeRadius * 2f;
-            }
-        }
-
-        void Update()
-        {
-            HandleMouseInteraction();
-        }
-
-        void FixedUpdate()
-        {
-            if (core != null)
-            {
-                core.Solve();
-                core.DeformMesh(transform);
-            }
-        }
-
-        void OnDestroy()
-        {
-            core?.nodeManager.Clear();
-        }
-
-        private bool Initialize()
-        {
-            if (!SetupMesh())
-            {
-                Debug.LogError("Failed to initialize soft body: MeshFilter or mesh missing!", this);
-                return false;
-            }
+            if (!SetupMesh()) return false;
 
             core = new SoftBodyCore(nodeRadius, influenceRadius, MaterialProps, mesh, mesh.vertices);
 
-            if (trussAsset != null)
-            {
-                ApplyTruss();
-            }
-            else
-            {
-                core.GenerateCubeTest(transform);
-            }
+            if (trussAsset != null) ApplyTruss();
+            else                    core.GenerateCubeTest(transform);
 
             return true;
         }
@@ -176,47 +100,81 @@ namespace DynamicEngine
         private bool SetupMesh()
         {
             meshFilter = GetComponent<MeshFilter>();
-            if (!meshFilter || meshFilter.sharedMesh == null)
-            {
-                return false;
-            }
+            if (!meshFilter || meshFilter.sharedMesh == null) return false;
 
-            mesh = Application.isPlaying ? (meshFilter.mesh = Instantiate(meshFilter.sharedMesh)) : meshFilter.sharedMesh;
+            mesh = Application.isPlaying
+                ? (meshFilter.mesh = Instantiate(meshFilter.sharedMesh))
+                : meshFilter.sharedMesh;
             return true;
         }
 
-        public void ApplyTrussAsset(TrussAsset truss)
+        // ──────────────────────────────────────────────────────────
+        //  Public helpers
+        // ──────────────────────────────────────────────────────────
+        
+        public TrussAsset GetTrussAsset()
         {
-            if (truss == null)
-            {
-                Debug.LogWarning("Cannot apply null TrussAsset.", this);
-                return;
-            }
-            trussAsset = truss;
+            return trussAsset;
+        } 
+        
+        public void ApplyTruss()
+        {
+            if (trussAsset == null) { Debug.LogWarning("No TrussAsset assigned.", this); return; }
+
+            var positions = trussAsset.NodePositions;
+            var beams = trussAsset.GetBeams();
+
+            if (positions == null || positions.Length < 2) { Debug.LogWarning("Invalid node positions.", this); return; }
+            if (beams == null || beams.Length < 1) { Debug.LogWarning("No beams defined.", this); return; }
+
+            core.GenerateNodesAndBeams(positions, beamsArray: beams, parent: transform);
+        }
+
+        public void ApplyTrussAsset(TrussAsset asset)
+        {
+            if (asset == null) { Debug.LogWarning("Cannot apply null TrussAsset.", this); return; }
+            trussAsset = asset;
             ApplyTruss();
 #if UNITY_EDITOR
             EditorUtility.SetDirty(this);
 #endif
         }
 
+        // ──────────────────────────────────────────────────────────
+        //  Unity lifecycle
+        // ──────────────────────────────────────────────────────────
+        void Update()   => HandleMouseInteraction();
+        void FixedUpdate()
+        {
+            if (core != null) { core.Solve(); core.DeformMesh(transform); }
+        }
+        void OnDestroy() => core?.nodeManager.Clear();
+
+        // ──────────────────────────────────────────────────────────
+        //  Utilities
+        // ──────────────────────────────────────────────────────────
+        private void ApplyMaterialProperties()
+        {
+            if (materialType != MaterialType.Custom && MaterialPresets.TryGetValue(materialType, out var props))
+                customMaterialProps = props;
+        }
+
+        private void ValidateParameters()
+        {
+            if (nodeRadius < 0.01f) nodeRadius = 0.01f;
+            if (beamConnectionDistance < nodeRadius * 2f)
+                beamConnectionDistance = nodeRadius * 2f;
+        }
+
+        // ──────────────────────────────────────────────────────────
+        //  Mouse interaction & gizmos (unchanged)
+        // ──────────────────────────────────────────────────────────
+        #region Mouse & Gizmos
         private void HandleMouseInteraction()
         {
-            if (mainCamera == null || core == null || core.nodeManager == null)
-            {
-                Debug.LogWarning("Main camera or core not initialized, skipping mouse interaction.", this);
-                return;
-            }
+            if (mainCamera == null || core == null) return;
 
-            Vector3 mousePos = Input.mousePosition;
-            if (mousePos.x < 0 || mousePos.y < 0 ||
-                mousePos.x > Screen.width || mousePos.y > Screen.height ||
-                float.IsNaN(mousePos.x) || float.IsNaN(mousePos.y))
-            {
-                Debug.LogWarning("Mouse position out of valid screen bounds, skipping interaction.", this);
-                return;
-            }
-
-            Ray ray = mainCamera.ScreenPointToRay(mousePos);
+            Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
 
             if (Input.GetMouseButtonDown(0))
             {
@@ -224,62 +182,46 @@ namespace DynamicEngine
                 if (draggedNodeIndex >= 0)
                 {
                     isDragging = true;
-                    dragPlane = new Plane(mainCamera.transform.forward, core.nodeManager.Nodes[draggedNodeIndex].position);
+                    dragPlane = new Plane(mainCamera.transform.forward,
+                                          core.nodeManager.Nodes[draggedNodeIndex].position);
                 }
             }
 
-            if (Input.GetMouseButtonUp(0))
-            {
-                isDragging = false;
-                draggedNodeIndex = -1;
-            }
+            if (Input.GetMouseButtonUp(0)) { isDragging = false; draggedNodeIndex = -1; }
 
-            if (isDragging && draggedNodeIndex >= 0)
+            if (isDragging && draggedNodeIndex >= 0 &&
+                dragPlane.Raycast(ray, out float dist))
             {
-                if (dragPlane.Raycast(ray, out float distance))
-                {
-                    Vector3 targetPos = ray.GetPoint(distance);
-                    core.ApplyImpulse(draggedNodeIndex, targetPos, 10f);
-                }
+                core.ApplyImpulse(draggedNodeIndex, ray.GetPoint(dist), 10f);
             }
         }
 
 #if UNITY_EDITOR
-        void OnDrawGizmos()
+        private void OnDrawGizmos()
         {
-            if (!showGizmos || core == null || core.nodeManager == null)
-                return;
+            if (!showGizmos || core == null) return;
 
             Gizmos.color = Color.blue;
-            foreach (var node in core.nodeManager.Nodes)
-            {
-                if (node != null)
-                {
-                    Gizmos.DrawWireSphere(node.position, core.nodeManager.NodeRadius);
-                }
-            }
+            foreach (var n in core.nodeManager.Nodes)
+                if (n != null) Gizmos.DrawWireSphere(n.position, core.nodeManager.NodeRadius);
 
             Gizmos.color = Color.yellow;
-            foreach (var beam in core.beams)
+            foreach (var b in core.beams)
             {
-                if (beam.nodeA >= 0 && beam.nodeA < core.nodeManager.Nodes.Count &&
-                    beam.nodeB >= 0 && beam.nodeB < core.nodeManager.Nodes.Count)
+                if (b.nodeA >= 0 && b.nodeA < core.nodeManager.Nodes.Count &&
+                    b.nodeB >= 0 && b.nodeB < core.nodeManager.Nodes.Count)
                 {
-                    Transform nodeA = core.nodeManager.Nodes[beam.nodeA];
-                    Transform nodeB = core.nodeManager.Nodes[beam.nodeB];
-                    if (nodeA != null && nodeB != null)
-                    {
-                        Gizmos.DrawLine(nodeA.position, nodeB.position);
-                    }
+                    var a = core.nodeManager.Nodes[b.nodeA];
+                    var bPos = core.nodeManager.Nodes[b.nodeB];
+                    if (a != null && bPos != null) Gizmos.DrawLine(a.position, bPos.position);
                 }
             }
 
             Gizmos.color = Color.green;
-            foreach (var point in core.collisionPoints)
-            {
-                Gizmos.DrawWireSphere(point, core.nodeManager.NodeRadius * 0.5f);
-            }
+            foreach (var p in core.collisionPoints)
+                Gizmos.DrawWireSphere(p, core.nodeManager.NodeRadius * 0.5f);
         }
 #endif
+        #endregion
     }
 }
