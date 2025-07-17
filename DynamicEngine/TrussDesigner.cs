@@ -1,4 +1,4 @@
-/* DynamicEngine3D - Soft Body Simulation
+/* DynamicEngine3D - Node Management
    *---*---*
   / \ / \ / \
  *---*---*---*
@@ -10,90 +10,67 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
 
 namespace DynamicEngine
-{
+{ 
     public class NodeLinkEditor : MonoBehaviour
     {
-        [Header("Node, Link, and Face Data")]
-        [SerializeField] public List<Vector3> Nodes = new List<Vector3>();
-        [SerializeField] public List<Link> Links = new List<Link>();
-        [SerializeField] public List<Face> Faces = new List<Face>();
-        [SerializeField] public List<int> SelectedNodeIndices = new List<int>();
-        [SerializeField] public List<int> SelectedLinkIndices = new List<int>();
-        [SerializeField] public List<int> SelectedFaceIndices = new List<int>();
-        [SerializeField] public List<int> PinnedNodes = new List<int>();
+        [Header("Node and Link Data")]
+        [SerializeField] public List<Vector3> nodes = new List<Vector3>();
+        [SerializeField] public List<Link> links = new List<Link>();
+        [SerializeField] public List<int> selectedNodeIndices = new List<int>();
+        [SerializeField] public List<int> selectedLinkIndices = new List<int>();
+        [SerializeField] public List<int> pinnedNodes = new List<int>();
+
+        [Header("Material Properties")]
+        [SerializeField] private MaterialProperties materialProps = new MaterialProperties(0.5f, 1e-3f, 0.3f, 0.1f, 0.15f, 0.1f, 0.05f);
+        public MaterialProperties MaterialProps => materialProps;
 
         [Header("Editor States")]
-        [SerializeField] public bool IsCreatingNode = false;
-        [SerializeField] public int CreatingLinkNodeIndex = -1;
-        [SerializeField] public List<int> CreatingFaceNodeIndices = new List<int>();
-        [SerializeField] public int CurrentTab = 0;
+        [SerializeField] public bool isCreatingNode = false;
+        [SerializeField] public int creatingLinkNodeIndex = -1;
+        [SerializeField] public int currentTab = 0; // 0: Info, 1: Nodes, 2: Links, 3: Debugging
 
         [Header("Physical Properties")]
-        [SerializeField, Range(0.1f, 5.0f)] public float NodeMass = 0.5f;
-        [SerializeField, Range(1.0f, 1.5f), Tooltip("Maximum stretch factor for beams (e.g., 1.05 = 105% of rest length)")]
-        public float MaxStretchFactor = 1.05f;
-        [SerializeField, Range(0.5f, 1.0f), Tooltip("Minimum stretch factor for beams (e.g., 0.95 = 95% of rest length)")]
-        public float MinStretchFactor = 0.95f;
+        [SerializeField, Range(0.1f, 5.0f)] public float nodeMass = 0.5f;
+        [SerializeField, Range(1.0f, 1.5f), Tooltip("Maximum stretch factor for beams (e.g., 1.05 = 105% of rest length)")] public float maxStretchFactor = 1.05f;
+        [SerializeField, Range(0.5f, 1.0f), Tooltip("Minimum stretch factor for beams (e.g., 0.95 = 95% of rest length)")] public float minStretchFactor = 0.95f;
 
         [Header("Visualization Settings")]
-        [SerializeField, Tooltip("Visualize forces (red: tension, blue: compression, green: collisions, magenta: ground, cyan: face-node)")]
-        public bool VisualizeForces = false;
-        [SerializeField, Tooltip("Size of node spheres in the Scene view")]
-        public float NodeSize = 0.1f;
-        [SerializeField, Tooltip("Thickness of link lines in the Scene view")]
-        public float LinkThickness = 3f;
-        [SerializeField, Tooltip("Color for unselected nodes")] public Color NodeColor = Color.red;
-        [SerializeField, Tooltip("Color for selected nodes")] public Color SelectedNodeColor = Color.blue;
-        [SerializeField, Tooltip("Color for pinned nodes")] public Color PinnedNodeColor = Color.magenta;
-        [SerializeField, Tooltip("Color for unselected links")] public Color LinkColor = Color.yellow;
-        [SerializeField, Tooltip("Color for selected links")] public Color SelectedLinkColor = Color.blue;
-        [SerializeField, Tooltip("Color for unselected faces")] public Color FaceColor = Color.green;
-        [SerializeField, Tooltip("Color for selected faces")] public Color SelectedFaceColor = Color.cyan;
+        [SerializeField, Tooltip("Visualize forces (red: tension, blue: compression, green: collisions, magenta: ground)")] public bool visualizeForces = false;
+        [SerializeField, Tooltip("Size of node spheres in the Scene view")] public float nodeSize = 0.1f;
+        [SerializeField, Tooltip("Thickness of link lines in the Scene view")] public float linkThickness = 3f;
+        [SerializeField, Tooltip("Color for unselected nodes")] public Color nodeColor = Color.red;
+        [SerializeField, Tooltip("Color for selected nodes")] public Color selectedNodeColor = Color.blue;
+        [SerializeField, Tooltip("Color for pinned nodes")] public Color pinnedNodeColor = Color.magenta;
+        [SerializeField, Tooltip("Color for unselected links")] public Color linkColor = Color.yellow;
+        [SerializeField, Tooltip("Color for selected links")] public Color selectedLinkColor = Color.blue;
 
         [Header("Debugging")]
-        [SerializeField, Tooltip("Enable debug logs for operations like pinning and stretch limit application")]
-        public bool EnableDebugLogs = false;
-
-        [Header("Generator Settings")]
-        [SerializeField, Tooltip("Mesh to generate nodes and beams from")]
-        public Mesh SourceMesh;
-        [SerializeField, Range(0.1f, 1.0f), Tooltip("Resolution of the generated structure (1.0 = full detail, 0.1 = ~10% vertices)")]
-        public float Resolution = 1.0f;
-        [SerializeField, Tooltip("Generate tetrahedral connectivity for 3D soft-body stability")]
-        public bool UseTetrahedralConnectivity = true;
+        [SerializeField, Tooltip("Enable debug logs for operations like pinning and stretch limit application")] public bool enableDebugLogs = false;
 
         [Header("References")]
-        [SerializeField] public SoftBody SoftBodyReference;
-        public SoftBody SoftBody => SoftBodyReference;
+        [SerializeField] public SoftBody softBody;
+        public SoftBody SoftBody => softBody;
 
         [SerializeField]
-        public List<MaterialPreset> MaterialPresets = new List<MaterialPreset>
+        public List<MaterialPreset> materialPresets = new List<MaterialPreset>
         {
-            new MaterialPreset { name = "Rubber", compliance = 1e-3f, damping = 0.3f, nodeMass = 0.5f, maxStretchFactor = 1.1f, minStretchFactor = 0.9f, plasticityThreshold = 0.1f, plasticityRate = 0.05f },
-            new MaterialPreset { name = "Metal", compliance = 1e-6f, damping = 0.005f, nodeMass = 2.0f, maxStretchFactor = 1.02f, minStretchFactor = 0.98f, plasticityThreshold = 0.05f, plasticityRate = 0.1f },
-            new MaterialPreset { name = "Plastic", compliance = 1e-4f, damping = 0.01f, nodeMass = 1.0f, maxStretchFactor = 1.05f, minStretchFactor = 0.95f, plasticityThreshold = 0.03f, plasticityRate = 0.2f }
+            new MaterialPreset { name = "Rubber", springForce = 800f, damping = 30f, nodeMass = 0.5f, maxStretchFactor = 1.1f, minStretchFactor = 0.9f },
+            new MaterialPreset { name = "Metal", springForce = 10000f, damping = 0.005f, nodeMass = 2.0f, maxStretchFactor = 1.02f, minStretchFactor = 0.98f },
+            new MaterialPreset { name = "Plastic", springForce = 5000f, damping = 0.01f, nodeMass = 1.0f, maxStretchFactor = 1.05f, minStretchFactor = 0.95f }
         };
 
         private void Awake()
         {
-            if (Application.isPlaying)
-            {
-              enabled = false; // Disable the script during Play Mode
-              if (EnableDebugLogs) Debug.Log("NodeLinkEditor disabled during Play Mode.", this);
-              return;
-            }
             Initialize();
         }
 
         private void Update()
         {
-            if (Application.isPlaying) return;
             UpdateVisualization();
         }
 
@@ -101,25 +78,20 @@ namespace DynamicEngine
         {
             if (Application.isPlaying)
             {
-                if (EnableDebugLogs) Debug.Log("NodeLinkEditor is inactive during Play Mode.", this);
+                enabled = false;
+                if (enableDebugLogs) Debug.Log("NodeLinkEditor is inactive during Play Mode.", this);
                 return;
             }
 
-            Nodes ??= new List<Vector3>();
-            Links ??= new List<Link>();
-            Faces ??= new List<Face>();
-            SelectedNodeIndices ??= new List<int>();
-            SelectedLinkIndices ??= new List<int>();
-            SelectedFaceIndices ??= new List<int>();
-            PinnedNodes ??= new List<int>();
-            CreatingFaceNodeIndices ??= new List<int>();
+            nodes ??= new List<Vector3>();
+            links ??= new List<Link>();
+            selectedNodeIndices ??= new List<int>();
+            selectedLinkIndices ??= new List<int>();
+            pinnedNodes ??= new List<int>();
 
-            SoftBodyReference = GetComponent<SoftBody>();
-            if (SoftBodyReference == null)
-            {
-                Debug.LogWarning("No SoftBody component found on this GameObject.", this);
-                return;
-            }
+            softBody = GetComponent<SoftBody>();
+            if (softBody == null)
+            softBody = gameObject.GetComponent<SoftBody>();   // same object
 
             LoadFromTrussAsset();
             ApplyStretchLimits();
@@ -127,125 +99,35 @@ namespace DynamicEngine
             ApplyPinnedNodes();
         }
 
-        public void UpdateVisualization()
+        private void UpdateVisualization()
         {
-            if (SoftBodyReference == null) return;
+            if (Application.isPlaying)
+            return;
+            if (softBody == null) return;
             var core = GetSoftBodyCore();
-            if (core != null) core.visualizeForces = VisualizeForces;
+            if (core != null) core.visualizeForces = visualizeForces;
         }
 
-       public SoftBodyCore GetSoftBodyCore()
-       {
-          if (SoftBodyReference == null)
-            {
-              Debug.LogWarning("SoftBodyReference is null in GetSoftBodyCore.", this);
-              return null;
-            }
-            return typeof(SoftBody).GetField("core", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(SoftBodyReference) as SoftBodyCore;
-       }
-        #region Node Management
+        private SoftBodyCore GetSoftBodyCore()
+        {
+            return typeof(SoftBody).GetField("core", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(softBody) as SoftBodyCore;
+        }
+
+        #region Node and Link Management
         public void CreateNode(Vector3 position)
         {
             Undo.RecordObject(this, "Create Node");
-            Nodes.Add(position);
-            SelectedNodeIndices.Clear();
-            SelectedNodeIndices.Add(Nodes.Count - 1);
-            SelectedLinkIndices.Clear();
-            SelectedFaceIndices.Clear();
+            nodes.Add(position);
+            selectedNodeIndices.Clear();
+            selectedNodeIndices.Add(nodes.Count - 1);
+            selectedLinkIndices.Clear();
             SaveToTrussAsset();
         }
 
-        public void DeleteSelectedNodes()
-        {
-            SelectedNodeIndices.Sort((a, b) => b.CompareTo(a));
-            foreach (int index in SelectedNodeIndices)
-            {
-                if (index >= 0 && index < Nodes.Count)
-                {
-                    PinnedNodes.Remove(index);
-                    Nodes.RemoveAt(index);
-                    Links.RemoveAll(link => link.nodeA == index || link.nodeB == index);
-                    Faces.RemoveAll(face => face.nodeA == index || face.nodeB == index || face.nodeC == index);
-                    UpdateLinkIndicesAfterNodeDeletion(index);
-                    UpdateFaceIndicesAfterNodeDeletion(index);
-                }
-            }
-            SelectedNodeIndices.Clear();
-            SaveToTrussAsset();
-        }
-
-        private void UpdateLinkIndicesAfterNodeDeletion(int deletedIndex)
-        {
-            for (int i = 0; i < Links.Count; i++)
-            {
-                var link = Links[i];
-                if (link.nodeA > deletedIndex) link.nodeA--;
-                if (link.nodeB > deletedIndex) link.nodeB--;
-                Links[i] = link;
-            }
-        }
-
-        private void UpdateFaceIndicesAfterNodeDeletion(int deletedIndex)
-        {
-            for (int i = 0; i < Faces.Count; i++)
-            {
-                var face = Faces[i];
-                if (face.nodeA > deletedIndex) face.nodeA--;
-                if (face.nodeB > deletedIndex) face.nodeB--;
-                if (face.nodeC > deletedIndex) face.nodeC--;
-                Faces[i] = face;
-            }
-            for (int i = 0; i < PinnedNodes.Count; i++)
-            {
-                if (PinnedNodes[i] > deletedIndex) PinnedNodes[i]--;
-            }
-        }
-
-        public void TransformSelectedNodes(Vector3 translation)
-        {
-            if (SelectedNodeIndices.Count == 0) return;
-            Undo.RecordObject(this, "Transform Nodes");
-            foreach (int index in SelectedNodeIndices.ToList())
-            {
-                if (index >= 0 && index < Nodes.Count && !PinnedNodes.Contains(index))
-                {
-                    Nodes[index] += translation;
-                }
-                else
-                {
-                    SelectedNodeIndices.Remove(index);
-                }
-            }
-            UpdateLinkRestLengths();
-            SaveToTrussAsset();
-        }
-
-        public Vector3 GetSelectionCenter()
-        {
-            if (SelectedNodeIndices.Count == 0) return Vector3.zero;
-            Vector3 center = Vector3.zero;
-            int validCount = 0;
-            foreach (int index in SelectedNodeIndices.ToList())
-            {
-                if (index >= 0 && index < Nodes.Count)
-                {
-                    center += Nodes[index];
-                    validCount++;
-                }
-                else
-                {
-                    SelectedNodeIndices.Remove(index);
-                }
-            }
-            return validCount > 0 ? center / validCount : Vector3.zero;
-        }
-        #endregion
-
-        #region Link Management
         public void CreateLink(int nodeA, int nodeB)
         {
             if (!IsValidLink(nodeA, nodeB)) return;
-            float restLength = Vector3.Distance(Nodes[nodeA], Nodes[nodeB]);
+            float restLength = Vector3.Distance(nodes[nodeA], nodes[nodeB]);
             if (restLength < 0.01f)
             {
                 Debug.LogWarning($"Cannot create link between nodes {nodeA} and {nodeB}: rest length {restLength} is too small.", this);
@@ -253,360 +135,194 @@ namespace DynamicEngine
             }
 
             Undo.RecordObject(this, "Create Link");
-            Links.Add(new Link { nodeA = nodeA, nodeB = nodeB, compliance = 1e-3f, damping = 0.3f, restLength = restLength });
-            SelectedNodeIndices.Clear();
-            SelectedLinkIndices.Clear();
-            SelectedFaceIndices.Clear();
-            SelectedLinkIndices.Add(Links.Count - 1);
+            links.Add(new Link { nodeA = nodeA, nodeB = nodeB, springForce = 800f, damping = 30f, restLength = restLength });
+            selectedNodeIndices.Clear();
+            selectedLinkIndices.Clear();
+            selectedLinkIndices.Add(links.Count - 1);
             SaveToTrussAsset();
         }
 
         private bool IsValidLink(int nodeA, int nodeB)
         {
-            if (nodeA == nodeB || nodeA < 0 || nodeB < 0 || nodeA >= Nodes.Count || nodeB >= Nodes.Count)
+            if (nodeA == nodeB || nodeA < 0 || nodeB < 0 || nodeA >= nodes.Count || nodeB >= nodes.Count)
             {
-                Debug.LogWarning($"Invalid link indices: nodeA={nodeA}, nodeB={nodeB}, Nodes.Count={Nodes.Count}.", this);
+                Debug.LogWarning($"Invalid link indices: nodeA={nodeA}, nodeB={nodeB}, nodes.Count={nodes.Count}.", this);
                 return false;
             }
             return true;
         }
 
-        public void DeleteSelectedLinks()
+        public void DeleteSelected()
         {
-            SelectedLinkIndices.Sort((a, b) => b.CompareTo(a));
-            foreach (int index in SelectedLinkIndices)
+            Undo.RecordObject(this, "Delete Selection");
+            if (currentTab == 1 && selectedNodeIndices.Count > 0)
             {
-                if (index >= 0 && index < Links.Count)
+                DeleteSelectedNodes();
+            }
+            else if (currentTab == 2 && selectedLinkIndices.Count > 0)
+            {
+                DeleteSelectedLinks();
+            }
+            ApplyPinnedNodes();
+            SaveToTrussAsset();
+        }
+
+        private void DeleteSelectedNodes()
+        {
+            selectedNodeIndices.Sort((a, b) => b.CompareTo(a));
+            foreach (int index in selectedNodeIndices)
+            {
+                if (index >= 0 && index < nodes.Count)
                 {
-                    Links.RemoveAt(index);
+                    pinnedNodes.Remove(index);
+                    nodes.RemoveAt(index);
+                    links.RemoveAll(link => link.nodeA == index || link.nodeB == index);
+                    UpdateLinkIndicesAfterNodeDeletion(index);
                 }
             }
-            SelectedLinkIndices.Clear();
+            selectedNodeIndices.Clear();
+            SaveToTrussAsset();
+        }
+
+        private void UpdateLinkIndicesAfterNodeDeletion(int deletedIndex)
+        {
+            for (int i = 0; i < links.Count; i++)
+            {
+                var link = links[i];
+                if (link.nodeA > deletedIndex) link.nodeA--;
+                if (link.nodeB > deletedIndex) link.nodeB--;
+                links[i] = link;
+            }
+            for (int i = 0; i < pinnedNodes.Count; i++)
+            {
+                if (pinnedNodes[i] > deletedIndex) pinnedNodes[i]--;
+            }
+        }
+
+        private void DeleteSelectedLinks()
+        {
+            selectedLinkIndices.Sort((a, b) => b.CompareTo(a));
+            foreach (int index in selectedLinkIndices)
+            {
+                if (index >= 0 && index < links.Count)
+                {
+                    links.RemoveAt(index);
+                }
+            }
+            selectedLinkIndices.Clear();
+            SaveToTrussAsset();
+        }
+
+        public void TransformSelectedNodes(Vector3 translation)
+        {
+            if (selectedNodeIndices.Count == 0) return;
+            Undo.RecordObject(this, "Transform Nodes");
+            foreach (int index in selectedNodeIndices.ToList())
+            {
+                if (index >= 0 && index < nodes.Count && !pinnedNodes.Contains(index))
+                {
+                    nodes[index] += translation;
+                }
+                else
+                {
+                    selectedNodeIndices.Remove(index);
+                }
+            }
+            UpdateLinkRestLengths();
             SaveToTrussAsset();
         }
 
         public void UpdateLinkRestLengths()
         {
-            for (int i = 0; i < Links.Count; i++)
+            for (int i = 0; i < links.Count; i++)
             {
-                var link = Links[i];
-                if (link.nodeA < Nodes.Count && link.nodeB < Nodes.Count)
+                var link = links[i];
+                if (link.nodeA < nodes.Count && link.nodeB < nodes.Count)
                 {
-                    link.restLength = Vector3.Distance(Nodes[link.nodeA], Nodes[link.nodeB]);
-                    Links[i] = link;
+                    link.restLength = Vector3.Distance(nodes[link.nodeA], nodes[link.nodeB]);
+                    links[i] = link;
                 }
             }
         }
-        #endregion
 
-        #region Face Management
-        public void CreateFace(int nodeA, int nodeB, int nodeC)
+        public Vector3 GetSelectionCenter()
         {
-            if (!IsValidFace(nodeA, nodeB, nodeC)) return;
-            Undo.RecordObject(this, "Create Face");
-            Faces.Add(new Face { nodeA = nodeA, nodeB = nodeB, nodeC = nodeC });
-            SelectedNodeIndices.Clear();
-            SelectedLinkIndices.Clear();
-            SelectedFaceIndices.Clear();
-            SelectedFaceIndices.Add(Faces.Count - 1);
-            SaveToTrussAsset();
-        }
-
-        private bool IsValidFace(int nodeA, int nodeB, int nodeC)
-        {
-            if (nodeA == nodeB || nodeB == nodeC || nodeA == nodeC ||
-                nodeA < 0 || nodeB < 0 || nodeC < 0 ||
-                nodeA >= Nodes.Count || nodeB >= Nodes.Count || nodeC >= Nodes.Count)
+            if (selectedNodeIndices.Count == 0) return Vector3.zero;
+            Vector3 center = Vector3.zero;
+            int validCount = 0;
+            foreach (int index in selectedNodeIndices.ToList())
             {
-                Debug.LogWarning($"Invalid face indices: nodeA={nodeA}, nodeB={nodeB}, nodeC={nodeC}, Nodes.Count={Nodes.Count}.", this);
-                return false;
-            }
-            return true;
-        }
-
-        public void DeleteSelectedFaces()
-        {
-            SelectedFaceIndices.Sort((a, b) => b.CompareTo(a));
-            foreach (int index in SelectedFaceIndices)
-            {
-                if (index >= 0 && index < Faces.Count)
+                if (index >= 0 && index < nodes.Count)
                 {
-                    Faces.RemoveAt(index);
+                    center += nodes[index];
+                    validCount++;
+                }
+                else
+                {
+                    selectedNodeIndices.Remove(index);
                 }
             }
-            SelectedFaceIndices.Clear();
-            SaveToTrussAsset();
-        }
-        #endregion
-
-        #region Deletion
-        public void DeleteSelected()
-        {
-            Undo.RecordObject(this, "Delete Selection");
-            if (CurrentTab == 0 && SelectedNodeIndices.Count > 0)
-            {
-                DeleteSelectedNodes();
-            }
-            else if (CurrentTab == 1 && SelectedLinkIndices.Count > 0)
-            {
-                DeleteSelectedLinks();
-            }
-            else if (CurrentTab == 2 && SelectedFaceIndices.Count > 0)
-            {
-                DeleteSelectedFaces();
-            }
-            ApplyPinnedNodes();
-            SaveToTrussAsset();
+            return validCount > 0 ? center / validCount : Vector3.zero;
         }
         #endregion
 
         #region Truss Asset Management
         public void LoadFromTrussAsset()
         {
-            if (SoftBodyReference == null || SoftBodyReference.GetTrussAsset() == null)
+            if (softBody == null || softBody.GetTrussAsset() == null)
             {
-                if (EnableDebugLogs) Debug.LogWarning("Cannot load from TrussAsset: SoftBody or TrussAsset is missing.", this);
+                if (enableDebugLogs) Debug.LogWarning("Cannot load from TrussAsset: SoftBody or TrussAsset is missing.", this);
                 return;
             }
 
-            TrussAsset truss = SoftBodyReference.GetTrussAsset();
-            Nodes = truss.NodePositions?.ToList() ?? new List<Vector3>();
-            Links.Clear();
-            Faces.Clear();
+            TrussAsset truss = softBody.GetTrussAsset();
+            nodes = truss.NodePositions?.ToList() ?? new List<Vector3>();
+            links.Clear();
             foreach (var beam in truss.GetTrussBeams())
             {
-                Links.Add(new Link
+                links.Add(new Link
                 {
                     nodeA = beam.nodeA,
                     nodeB = beam.nodeB,
-                    compliance = beam.compliance,
+                    springForce = beam.compliance,
                     damping = beam.damping,
                     restLength = beam.restLength
                 });
             }
-            foreach (var face in truss.GetTrussFaces())
-            {
-                Faces.Add(new Face
-                {
-                    nodeA = face.nodeA,
-                    nodeB = face.nodeB,
-                    nodeC = face.nodeC
-                });
-            }
-            SelectedNodeIndices.Clear();
-            SelectedLinkIndices.Clear();
-            SelectedFaceIndices.Clear();
-            PinnedNodes.Clear();
-            if (EnableDebugLogs) Debug.Log($"Loaded {Nodes.Count} nodes, {Links.Count} links, and {Faces.Count} faces from TrussAsset.", this);
+            selectedNodeIndices.Clear();
+            selectedLinkIndices.Clear();
+            pinnedNodes.Clear();
+            if (enableDebugLogs) Debug.Log($"Loaded {nodes.Count} nodes and {links.Count} links from TrussAsset.", this);
             ValidateNodeConnectivity();
-        }
-
-        #region Generator
-        public void GenerateNodeBeamFromMesh()
-        {
-            Undo.RecordObject(this, "Generate Node and Beam from Mesh");
-
-            Nodes.Clear();
-            Links.Clear();
-            Faces.Clear();
-            SelectedNodeIndices.Clear();
-            SelectedLinkIndices.Clear();
-            SelectedFaceIndices.Clear();
-            PinnedNodes.Clear();
-
-            if (SourceMesh == null)
-            {
-                Debug.LogWarning("No source mesh assigned for generation.", this);
-                return;
-            }
-
-            Resolution = Mathf.Clamp(Resolution, 0.1f, 1.0f);
-
-            Vector3[] vertices = SourceMesh.vertices;
-            int[] triangles = SourceMesh.triangles;
-            if (vertices.Length == 0)
-            {
-                Debug.LogWarning("Source mesh has no vertices.", this);
-                return;
-            }
-
-            int targetNodeCount = Mathf.Max(1, Mathf.RoundToInt(vertices.Length * Resolution));
-            List<Vector3> newNodes = new List<Vector3>();
-            List<int> vertexToNodeMap = new List<int>(new int[vertices.Length]);
-
-            ClusterVertices(vertices, targetNodeCount, newNodes, vertexToNodeMap);
-
-            Nodes.AddRange(newNodes);
-
-            HashSet<(int, int)> createdLinks = new HashSet<(int, int)>();
-            for (int i = 0; i < triangles.Length; i += 3)
-            {
-                int v0 = triangles[i];
-                int v1 = triangles[i + 1];
-                int v2 = triangles[i + 2];
-
-                int n0 = vertexToNodeMap[v0];
-                int n1 = vertexToNodeMap[v1];
-                int n2 = vertexToNodeMap[v2];
-
-                if (n0 >= 0 && n1 >= 0 && n2 >= 0 && n0 != n1 && n1 != n2 && n0 != n2)
-                {
-                    CreateFace(n0, n1, n2);
-                }
-
-                if (n0 >= 0 && n1 >= 0 && n0 != n1) AddBeam(n0, n1, createdLinks);
-                if (n1 >= 0 && n2 >= 0 && n1 != n2) AddBeam(n1, n2, createdLinks);
-                if (n2 >= 0 && n0 >= 0 && n2 != n0) AddBeam(n2, n0, createdLinks);
-            }
-
-            if (UseTetrahedralConnectivity)
-            {
-                GenerateTetrahedralBeams(newNodes, createdLinks);
-            }
-
-            ApplyStretchLimits();
-            ApplyPinnedNodes();
-            ValidateNodeConnectivity();
-
-            if (EnableDebugLogs)
-                Debug.Log($"Generated mesh-based structure: {Nodes.Count} nodes, {Links.Count} links, {Faces.Count} faces from mesh '{SourceMesh.name}'.", this);
-        }
-
-        private void ClusterVertices(Vector3[] vertices, int targetNodeCount, List<Vector3> newNodes, List<int> vertexToNodeMap)
-        {
-            if (targetNodeCount >= vertices.Length)
-            {
-                newNodes.AddRange(vertices);
-                for (int i = 0; i < vertices.Length; i++)
-                    vertexToNodeMap[i] = i;
-                return;
-            }
-
-            Vector3 min = vertices[0];
-            Vector3 max = vertices[0];
-            for (int i = 1; i < vertices.Length; i++)
-            {
-                min = Vector3.Min(min, vertices[i]);
-                max = Vector3.Max(max, vertices[i]);
-            }
-
-            float clusterSize = Mathf.Pow((max - min).magnitude / Mathf.Pow(targetNodeCount, 1f / 3f), 3);
-            Dictionary<Vector3Int, List<(int, Vector3)>> clusters = new Dictionary<Vector3Int, List<(int, Vector3)>>();
-
-            for (int i = 0; i < vertices.Length; i++)
-            {
-                Vector3 pos = vertices[i];
-                Vector3Int cell = new Vector3Int(
-                    Mathf.FloorToInt(pos.x / clusterSize),
-                    Mathf.FloorToInt(pos.y / clusterSize),
-                    Mathf.FloorToInt(pos.z / clusterSize)
-                );
-                if (!clusters.ContainsKey(cell))
-                    clusters[cell] = new List<(int, Vector3)>();
-                clusters[cell].Add((i, pos));
-            }
-
-            int nodeIndex = 0;
-            foreach (var cluster in clusters.Values)
-            {
-                if (cluster.Count == 0) continue;
-
-                Vector3 centroid = Vector3.zero;
-                foreach (var (index, pos) in cluster)
-                    centroid += pos;
-                centroid /= cluster.Count;
-
-                newNodes.Add(centroid);
-                foreach (var (index, _) in cluster)
-                    vertexToNodeMap[index] = nodeIndex;
-                nodeIndex++;
-            }
-
-            if (newNodes.Count == 0)
-            {
-                newNodes.Add(vertices[0]);
-                vertexToNodeMap[0] = 0;
-            }
-        }
-
-        private void GenerateTetrahedralBeams(List<Vector3> nodes, HashSet<(int, int)> createdLinks)
-        {
-            int k = 4;
-            for (int i = 0; i < nodes.Count; i++)
-            {
-                var distances = new List<(int, float)>();
-                for (int j = 0; j < nodes.Count; j++)
-                {
-                    if (i != j)
-                    {
-                        float dist = Vector3.Distance(nodes[i], nodes[j]);
-                        distances.Add((j, dist));
-                    }
-                }
-
-                distances.Sort((a, b) => a.Item2.CompareTo(b.Item2));
-                for (int j = 0; j < Mathf.Min(k, distances.Count); j++)
-                {
-                    AddBeam(i, distances[j].Item1, createdLinks);
-                }
-            }
-        }
-
-        private void AddBeam(int nodeA, int nodeB, HashSet<(int, int)> createdLinks)
-        {
-            if (nodeA == nodeB || nodeA < 0 || nodeB < 0 || nodeA >= Nodes.Count || nodeB >= Nodes.Count) return;
-            int min = Mathf.Min(nodeA, nodeB);
-            int max = Mathf.Max(nodeA, nodeB);
-            if (createdLinks.Contains((min, max))) return;
-
-            createdLinks.Add((min, max));
-            CreateLink(nodeA, nodeB);
         }
 
         public void SaveToTrussAsset()
         {
-            if (SoftBodyReference == null || SoftBodyReference.GetTrussAsset() == null)
+            if (softBody == null || softBody.GetTrussAsset() == null)
             {
-                if (EnableDebugLogs) Debug.LogWarning("Cannot save to TrussAsset: SoftBody or TrussAsset is missing.", this);
+                if (enableDebugLogs) Debug.LogWarning("Cannot save to TrussAsset: SoftBody or TrussAsset is missing.", this);
                 return;
             }
 
-            if (GetSoftBodyCore() == null)
-            {
-                if (EnableDebugLogs) Debug.LogWarning("Cannot save to TrussAsset: SoftBodyCore is not initialized.", this);
-                return;
-            }
-
-            TrussAsset truss = SoftBodyReference.GetTrussAsset();
-            truss.SetNodePositions(Nodes.ToArray());
-            var trussBeams = Links
-                .Where(link => link.nodeA >= 0 && link.nodeA < Nodes.Count && link.nodeB >= 0 && link.nodeB < Nodes.Count)
+            TrussAsset truss = softBody.GetTrussAsset();
+            truss.SetNodePositions(nodes.ToArray());
+            var trussBeams = links
+                .Where(link => link.nodeA >= 0 && link.nodeA < nodes.Count && link.nodeB >= 0 && link.nodeB < nodes.Count)
                 .Select(link => new TrussAsset.TrussBeam(
                     link.nodeA,
                     link.nodeB,
-                    link.compliance,
+                    link.springForce,
                     link.damping,
                     link.restLength
                 )).ToList();
-            var trussFaces = Faces
-                .Where(face => face.nodeA >= 0 && face.nodeA < Nodes.Count && face.nodeB >= 0 && face.nodeB < Nodes.Count && face.nodeC >= 0 && face.nodeC < Nodes.Count)
-                .Select(face => new TrussAsset.TrussFace(face.nodeA, face.nodeB, face.nodeC))
-                .ToList();
             truss.SetBeams(trussBeams);
-            truss.SetFaces(trussFaces);
-            SoftBodyReference.ApplyTrussAsset(truss);
-
-            var core = GetSoftBodyCore();
-            if (core != null)
-            {
-                core.SetTrussAsset(truss);
-            }
+            softBody.ApplyTrussAsset(truss);
 
 #if UNITY_EDITOR
             EditorUtility.SetDirty(truss);
-            EditorUtility.SetDirty(SoftBodyReference);
+            EditorUtility.SetDirty(softBody);
 #endif
-            if (EnableDebugLogs) Debug.Log($"Saved {Nodes.Count} nodes, {trussBeams.Count} beams, and {trussFaces.Count} faces to TrussAsset.", this);
+            if (enableDebugLogs) Debug.Log($"Saved {nodes.Count} nodes and {trussBeams.Count} beams to TrussAsset.", this);
             ValidateNodeConnectivity();
         }
         #endregion
@@ -614,14 +330,14 @@ namespace DynamicEngine
         #region Physics Settings
         public void ApplyStretchLimits()
         {
-            if (SoftBodyReference == null)
+            if (softBody == null)
             {
-                if (EnableDebugLogs) Debug.LogWarning("Cannot apply stretch limits: SoftBody is missing.", this);
+                if (enableDebugLogs) Debug.LogWarning("Cannot apply stretch limits: SoftBody is missing.", this);
                 return;
             }
 
-            MaxStretchFactor = Mathf.Clamp(MaxStretchFactor, 1.0f, 1.5f);
-            MinStretchFactor = Mathf.Clamp(MinStretchFactor, 0.5f, 1.0f);
+            maxStretchFactor = Mathf.Clamp(maxStretchFactor, 1.0f, 1.5f);
+            minStretchFactor = Mathf.Clamp(minStretchFactor, 0.5f, 1.0f);
             var core = GetSoftBodyCore();
             if (core == null) return;
 
@@ -631,10 +347,10 @@ namespace DynamicEngine
                 var minField = typeof(SoftBodyCore).GetField("minStretchFactor", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                 if (maxField != null && minField != null)
                 {
-                    maxField.SetValue(core, MaxStretchFactor);
-                    minField.SetValue(core, MinStretchFactor);
-                    if (EnableDebugLogs)
-                        Debug.Log($"Applied stretch limits to SoftBodyCore: maxStretchFactor={MaxStretchFactor}, minStretchFactor={MinStretchFactor}", this);
+                    maxField.SetValue(core, maxStretchFactor);
+                    minField.SetValue(core, minStretchFactor);
+                    if (enableDebugLogs)
+                        Debug.Log($"Applied stretch limits to SoftBodyCore: maxStretchFactor={maxStretchFactor}, minStretchFactor={minStretchFactor}", this);
                 }
                 else
                 {
@@ -649,9 +365,9 @@ namespace DynamicEngine
 
         public void ApplyPinnedNodes()
         {
-            if (SoftBodyReference == null)
+            if (softBody == null)
             {
-                if (EnableDebugLogs) Debug.LogWarning("Cannot apply pinned nodes: SoftBody is missing.", this);
+                if (enableDebugLogs) Debug.LogWarning("Cannot apply pinned nodes: SoftBody is missing.", this);
                 return;
             }
 
@@ -664,16 +380,16 @@ namespace DynamicEngine
                 var unpinMethod = typeof(SoftBodyCore).GetMethod("UnpinNode", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
                 if (pinMethod != null && unpinMethod != null)
                 {
-                    for (int i = 0; i < Nodes.Count; i++)
+                    for (int i = 0; i < nodes.Count; i++)
                     {
                         unpinMethod.Invoke(core, new object[] { i });
                     }
-                    foreach (var nodeIndex in PinnedNodes)
+                    foreach (var nodeIndex in pinnedNodes)
                     {
-                        if (nodeIndex >= 0 && nodeIndex < Nodes.Count)
+                        if (nodeIndex >= 0 && nodeIndex < nodes.Count)
                         {
                             pinMethod.Invoke(core, new object[] { nodeIndex });
-                            if (EnableDebugLogs) Debug.Log($"Pinned node {nodeIndex} in SoftBodyCore.", this);
+                            if (enableDebugLogs) Debug.Log($"Pinned node {nodeIndex} in SoftBodyCore.", this);
                         }
                         else
                         {
@@ -683,63 +399,64 @@ namespace DynamicEngine
                 }
                 else
                 {
-                    Debug.LogWarning("PinNode/UnpinNode methods not implemented in SoftBodyCore.", this);
+                    Debug.LogWarning("Could not access PinNode/UnpinNode methods in SoftBodyCore.", this);
                 }
             }
             catch (System.Exception e)
             {
                 Debug.LogError($"Failed to apply pinned nodes: {e.Message}", this);
             }
+            SaveToTrussAsset();
         }
 
         public void ApplyRigidSettings()
         {
             Undo.RecordObject(this, "Apply Rigid Settings");
-            MaxStretchFactor = 1.02f;
-            MinStretchFactor = 0.98f;
-            NodeMass = 2.0f;
-            UpdateLinks(1e-6f, 0.005f);
+            maxStretchFactor = 1.02f;
+            minStretchFactor = 0.98f;
+            nodeMass = 2.0f;
+            UpdateLinks(10000f, 0.005f);
             ApplyStretchLimits();
             SaveToTrussAsset();
-            if (EnableDebugLogs)
-                Debug.Log("Applied rigid settings: maxStretchFactor=1.02, minStretchFactor=0.98, compliance=1e-6, damping=0.005, nodeMass=2.0.", this);
+            if (enableDebugLogs)
+                Debug.Log("Applied rigid settings: maxStretchFactor=1.02, minStretchFactor=0.98, springForce=10000, damping=0.005, nodeMass=2.0.", this);
         }
 
         public void ResetToDefaultSettings()
         {
             Undo.RecordObject(this, "Reset to Default Settings");
-            MaxStretchFactor = 1.05f;
-            MinStretchFactor = 0.95f;
-            NodeMass = 0.5f;
-            UpdateLinks(1e-3f, 0.3f);
+            maxStretchFactor = 1.05f;
+            minStretchFactor = 0.95f;
+            nodeMass = 0.5f;
+            UpdateLinks(800f, 30f);
             ApplyStretchLimits();
             SaveToTrussAsset();
-            if (EnableDebugLogs)
-                Debug.Log("Reset to default settings: maxStretchFactor=1.05, minStretchFactor=0.95, compliance=1e-3, damping=0.3, nodeMass=0.5.", this);
+            if (enableDebugLogs)
+                Debug.Log("Reset to default settings: maxStretchFactor=1.05, minStretchFactor=0.95, springForce=800, damping=30, nodeMass=0.5.", this);
         }
 
-        private void UpdateLinks(float compliance, float damping)
+        private void UpdateLinks(float springForce, float damping)
         {
             var updatedLinks = new List<Link>();
-            foreach (var link in Links)
+            foreach (var link in links)
             {
                 var updatedLink = link;
-                updatedLink.compliance = compliance;
+                updatedLink.springForce = springForce;
                 updatedLink.damping = damping;
                 updatedLinks.Add(updatedLink);
             }
-            Links = updatedLinks;
+            links = updatedLinks;
         }
 
         public void PinSelectedNodes()
         {
             Undo.RecordObject(this, "Pin Selected Nodes");
-            foreach (var index in SelectedNodeIndices)
+            foreach (var index in selectedNodeIndices)
             {
-                if (index >= 0 && index < Nodes.Count && !PinnedNodes.Contains(index))
+                if (index >= 0 && index < nodes.Count && !pinnedNodes.Contains(index))
                 {
-                    PinnedNodes.Add(index);
-                    if (EnableDebugLogs) Debug.Log($"Pinned node {index}.", this);
+                    pinnedNodes.Add(index);
+                    if (enableDebugLogs) Debug.Log($"Pinned node {index}.", this);
                 }
             }
             ApplyPinnedNodes();
@@ -748,12 +465,12 @@ namespace DynamicEngine
         public void UnpinSelectedNodes()
         {
             Undo.RecordObject(this, "Unpin Selected Nodes");
-            foreach (var index in SelectedNodeIndices)
+            foreach (var index in selectedNodeIndices)
             {
-                if (PinnedNodes.Contains(index))
+                if (pinnedNodes.Contains(index))
                 {
-                    PinnedNodes.Remove(index);
-                    if (EnableDebugLogs) Debug.Log($"Unpinned node {index}.", this);
+                    pinnedNodes.Remove(index);
+                    if (enableDebugLogs) Debug.Log($"Unpinned node {index}.", this);
                 }
             }
             ApplyPinnedNodes();
@@ -763,20 +480,20 @@ namespace DynamicEngine
         #region Validation
         public void ValidateNodeConnectivity()
         {
-            if (Nodes.Count == 0 || Links.Count == 0)
+            if (nodes.Count == 0 || links.Count == 0)
             {
-                if (EnableDebugLogs) Debug.LogWarning("No nodes or links to validate.", this);
+                if (enableDebugLogs) Debug.LogWarning("No nodes or links to validate.", this);
                 return;
             }
 
             Dictionary<int, int> nodeConnections = new Dictionary<int, int>();
-            for (int i = 0; i < Nodes.Count; i++)
+            for (int i = 0; i < nodes.Count; i++)
                 nodeConnections[i] = 0;
 
-            foreach (var link in Links)
+            foreach (var link in links)
             {
-                if (link.nodeA >= 0 && link.nodeA < Nodes.Count) nodeConnections[link.nodeA]++;
-                if (link.nodeB >= 0 && link.nodeB < Nodes.Count) nodeConnections[link.nodeB]++;
+                if (link.nodeA >= 0 && link.nodeA < nodes.Count) nodeConnections[link.nodeA]++;
+                if (link.nodeB >= 0 && link.nodeB < nodes.Count) nodeConnections[link.nodeB]++;
             }
 
             bool hasIssues = false;
@@ -796,11 +513,11 @@ namespace DynamicEngine
 
             if (nodeConnections.ContainsKey(6) && nodeConnections.ContainsKey(5))
             {
-                if (EnableDebugLogs)
+                if (enableDebugLogs)
                     Debug.Log($"Beam 12 (nodes 6-5): Node 6 has {nodeConnections[6]} connections, Node 5 has {nodeConnections[5]} connections.", this);
             }
 
-            if (!hasIssues && EnableDebugLogs)
+            if (!hasIssues && enableDebugLogs)
                 Debug.Log("Node connectivity validated: All nodes have 2-8 connections.", this);
         }
         #endregion
@@ -814,10 +531,14 @@ namespace DynamicEngine
                 return;
             }
 
-            List<Beam> beams = Links
-                .Where(link => link.nodeA >= 0 && link.nodeA < Nodes.Count && link.nodeB >= 0 && link.nodeB < Nodes.Count && link.restLength > 0.01f)
-                .Select(link => new Beam(link.nodeA, link.nodeB, link.compliance, link.damping, link.restLength))
+            core.SetMaterialProperties(MaterialProps);   // push NodeLinkEditor values into SoftBodyCore
+
+            List<Beam> beams = links
+                .Where(link => link.nodeA >= 0 && link.nodeA < nodes.Count && link.nodeB >= 0 && link.nodeB < nodes.Count && link.restLength > 0.01f)
+                .Select(link => new Beam(link.nodeA, link.nodeB, link.springForce, link.damping, link.restLength))
                 .ToList();
+
+            core.GenerateNodesAndBeams(nodes.ToArray(), beamsArray: beams.ToArray(), parent: transform);
 
             try
             {
@@ -825,8 +546,8 @@ namespace DynamicEngine
                 var minField = typeof(SoftBodyCore).GetField("minStretchFactor", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                 if (maxField != null && minField != null)
                 {
-                    maxField.SetValue(core, Mathf.Max(1.0f, MaxStretchFactor));
-                    minField.SetValue(core, Mathf.Min(1.0f, MinStretchFactor));
+                    maxField.SetValue(core, Mathf.Max(1.0f, maxStretchFactor));
+                    minField.SetValue(core, Mathf.Min(1.0f, minStretchFactor));
                 }
             }
             catch (System.Exception e)
@@ -835,8 +556,8 @@ namespace DynamicEngine
             }
 
             ApplyPinnedNodes();
-            if (EnableDebugLogs)
-                Debug.Log($"Synced {Nodes.Count} nodes and {beams.Count} beams to SoftBodyCore with stretch limits: max={MaxStretchFactor}, min={MinStretchFactor}.", this);
+            if (enableDebugLogs)
+                Debug.Log($"Synced {nodes.Count} nodes and {beams.Count} beams to SoftBodyCore with stretch limits: max={maxStretchFactor}, min={minStretchFactor}.", this);
         }
         #endregion
     }
@@ -845,16 +566,26 @@ namespace DynamicEngine
     [CustomEditor(typeof(NodeLinkEditor))]
     public class NodeLinkEditorCustom : Editor
     {
-        public NodeLinkEditor EditorTarget;
-        public Vector3 HandlePosition;
-        public bool IsDragging;
-        public bool StretchLimitsFoldout = true;
-        public bool MaterialPresetsFoldout = true;
-        public Dictionary<int, int> NodeConnections = new Dictionary<int, int>();
+        private NodeLinkEditor editor;
+        private Vector3 handlePosition;
+        private bool isDragging;
+        private bool stretchLimitsFoldout = true;
+        private bool visualizationFoldout = true;
+        private bool materialPresetsFoldout = true;
+        private Dictionary<int, int> nodeConnections = new Dictionary<int, int>();
 
         private void OnEnable()
         {
-            EditorTarget = (NodeLinkEditor)target;
+            editor = (NodeLinkEditor)target;
+            if (editor.softBody == null)
+            {
+                editor.softBody = editor.GetComponent<SoftBody>();
+            }
+
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            return;
+
+            EditorApplication.delayCall += DelayedInitializeSoftBody;
         }
 
         public override void OnInspectorGUI()
@@ -867,694 +598,573 @@ namespace DynamicEngine
 
         private void DrawInspectorGUI()
         {
-            EditorGUILayout.LabelField("Node & Link Editor", EditorStyles.boldLabel);
-            EditorGUILayout.Space();
-
             DrawSoftBodyReference();
             EditorGUILayout.Space();
             DrawTabs();
         }
+        
+
+        private void DelayedInitializeSoftBody()
+        {
+            // if the editor window might have been closed already
+            if (editor == null)
+            return;
+
+            // get the softBody component if we dont have it yet
+            var softBody = editor.GetComponent<SoftBody>();
+            if (softBody == null)
+            return;
+
+            // make sure we have a trussasset
+            if (softBody.trussAsset == null)
+            {
+               Debug.LogWarning("SoftBody has no TrussAsset assigned.", softBody);
+               return;
+            }
+
+            softBody.InitializeInEditMode();
+            EditorUtility.SetDirty(softBody);
+        }
+        
 
         private void DrawSoftBodyReference()
         {
             EditorGUILayout.BeginHorizontal();
             GUI.enabled = false;
-            EditorGUILayout.ObjectField("SoftBody", EditorTarget.SoftBody, typeof(SoftBody), true);
+            EditorGUILayout.ObjectField("SoftBody", editor.SoftBody, typeof(SoftBody), true);
             GUI.enabled = true;
-            if (GUILayout.Button("Reassign SoftBody", GUILayout.Width(120)))
-            {
-                Undo.RecordObject(EditorTarget, "Reassign SoftBody");
-                EditorTarget.SoftBodyReference = EditorTarget.GetComponent<SoftBody>();
-                if (EditorTarget.SoftBodyReference != null)
-                {
-                    EditorTarget.LoadFromTrussAsset();
-                    EditorTarget.ApplyStretchLimits();
-                    EditorTarget.ValidateNodeConnectivity();
-                    EditorTarget.ApplyPinnedNodes();
-                    EditorUtility.SetDirty(EditorTarget);
-                }
-                else
-                {
-                    Debug.LogWarning("No SoftBody component found on this GameObject.", EditorTarget);
-                }
-            }
-            if (GUILayout.Button("Reload TrussAsset", GUILayout.Width(120)))
-            {
-                EditorTarget.LoadFromTrussAsset();
-            }
             EditorGUILayout.EndHorizontal();
-        }
 
+            if (EditorApplication.isPlayingOrWillChangePlaymode) return;
+
+            editor.softBody = editor.GetComponent<SoftBody>();
+            if (editor.softBody != null)
+            {
+                editor.LoadFromTrussAsset();
+                editor.ApplyStretchLimits();
+                editor.ValidateNodeConnectivity();
+                editor.ApplyPinnedNodes();
+                EditorUtility.SetDirty(editor);
+            }
+            else
+            {
+                Debug.LogWarning("No SoftBody component found on this GameObject.", editor);
+            }
+        }
         private void DrawTabs()
         {
-            string[] tabs = { "Info","Nodes", "Links", "Faces", "Generator", "Stretch Limits", "Visualization", "Debugging" };
-            EditorTarget.CurrentTab = GUILayout.Toolbar(EditorTarget.CurrentTab, tabs);
+            string[] tabs = { "Info", "Nodes", "Links", "Debug", "Visual", "Stretch"};
+            editor.currentTab = GUILayout.Toolbar(editor.currentTab, tabs);
             EditorGUILayout.Space();
 
-            switch (EditorTarget.CurrentTab)
+            switch (editor.currentTab)
             {
                 case 0: DrawInfoTab(); break;
                 case 1: DrawNodesTab(); break;
                 case 2: DrawLinksTab(); break;
-                case 3: DrawFacesTab(); break;
-                case 4: DrawGeneratorTab(); break;
+                case 3: DrawDebuggingTab(); break;
+                case 4: DrawVisualizationTab(); break;
                 case 5: DrawStretchLimitsTab(); break;
-                case 6: DrawVisualizationTab(); break;
-                case 7: DrawDebuggingTab(); break;
             }
         }
 
         private void DrawInfoTab()
         {
-          EditorGUILayout.LabelField("Truss Information", EditorStyles.boldLabel); EditorGUI.indentLevel++;
-          EditorGUILayout.LabelField($"Total Nodes: {EditorTarget.Nodes?.Count ?? 0}");
-          EditorGUILayout.LabelField($"Total Links: {EditorTarget.Links?.Count ?? 0}");
-          EditorGUILayout.LabelField($"Total Faces: {EditorTarget.Faces?.Count ?? 0}");
-
-          EditorGUI.indentLevel--;
-
-        } 
+            EditorGUILayout.LabelField("Asset Information", EditorStyles.boldLabel);
+            GUI.enabled = false;
+            EditorGUILayout.ObjectField("NodeLinkEditor", editor, typeof(NodeLinkEditor), true);
+            EditorGUILayout.IntField("Nodes", editor.nodes.Count);
+            EditorGUILayout.IntField("Links", editor.links.Count);
+            EditorGUILayout.IntField("Pinned Nodes", editor.pinnedNodes.Count);
+            GUI.enabled = true;
+            if (GUILayout.Button("Reload from TrussAsset"))
+            {
+                editor.LoadFromTrussAsset();
+            }
+            editor.isCreatingNode = false;
+            editor.creatingLinkNodeIndex = -1;
+        }
 
         private void DrawNodesTab()
         {
-            EditorTarget.IsCreatingNode = EditorGUILayout.Toggle(new GUIContent("Create Node Mode", "Click on a surface to place a new node"), EditorTarget.IsCreatingNode);
-            if (EditorTarget.IsCreatingNode)
+            editor.isCreatingNode = EditorGUILayout.Toggle(new GUIContent("Create Node Mode", "Click on a surface to place a new node"), editor.isCreatingNode);
+            if (editor.isCreatingNode)
             {
                 EditorGUILayout.LabelField("Click on a surface to place node", new GUIStyle(EditorStyles.label) { normal = { textColor = Color.green } });
-                EditorTarget.CreatingLinkNodeIndex = -1;
-                EditorTarget.CreatingFaceNodeIndices.Clear();
+                editor.creatingLinkNodeIndex = -1;
             }
 
             EditorGUILayout.LabelField("Node Mass", EditorStyles.boldLabel);
-            EditorTarget.NodeMass = EditorGUILayout.FloatField(new GUIContent("Mass", "Mass of each node for physics simulation"), Mathf.Max(0.1f, EditorTarget.NodeMass));
+            editor.nodeMass = EditorGUILayout.FloatField(new GUIContent("Mass", "Mass of each node for physics simulation"), Mathf.Max(0.1f, editor.nodeMass));
 
-            string nodeInfo = EditorTarget.SelectedNodeIndices.Count switch
+            string nodeInfo = editor.selectedNodeIndices.Count switch
             {
                 0 => "No Nodes Selected",
-                1 => $"Node {EditorTarget.SelectedNodeIndices[0]} Selected",
-                _ => $"{EditorTarget.SelectedNodeIndices.Count} Nodes Selected"
+                1 => $"Node {editor.selectedNodeIndices[0]} Selected",
+                _ => $"{editor.selectedNodeIndices.Count} Nodes Selected"
             };
             EditorGUILayout.LabelField(nodeInfo, new GUIStyle(EditorStyles.label) { alignment = TextAnchor.MiddleRight });
 
-            if (EditorTarget.SelectedNodeIndices.Count > 0)
+            if (editor.selectedNodeIndices.Count > 0)
             {
                 EditorGUILayout.LabelField("Selected Node Positions", EditorStyles.boldLabel);
                 EditorGUI.indentLevel++;
-                foreach (var idx in EditorTarget.SelectedNodeIndices)
+                foreach (var idx in editor.selectedNodeIndices)
                 {
-                    if (idx >= 0 && idx < EditorTarget.Nodes.Count)
+                    if (idx >= 0 && idx < editor.nodes.Count)
                     {
-                        EditorGUILayout.LabelField($"Node {idx}: {EditorTarget.Nodes[idx]}");
+                        EditorGUILayout.LabelField($"Node {idx}: {editor.nodes[idx]}");
                     }
                 }
                 EditorGUI.indentLevel--;
             }
 
             EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button("Delete Selected")) EditorTarget.DeleteSelected();
+            if (GUILayout.Button("Delete Selected")) editor.DeleteSelected();
             if (GUILayout.Button("Select All"))
             {
-                EditorTarget.SelectedNodeIndices.Clear();
-                for (int i = 0; i < EditorTarget.Nodes.Count; i++) EditorTarget.SelectedNodeIndices.Add(i);
+                editor.selectedNodeIndices.Clear();
+                for (int i = 0; i < editor.nodes.Count; i++) editor.selectedNodeIndices.Add(i);
             }
-            if (GUILayout.Button("Clear Selection")) EditorTarget.SelectedNodeIndices.Clear();
+            if (GUILayout.Button("Clear Selection")) editor.selectedNodeIndices.Clear();
             EditorGUILayout.EndHorizontal();
 
             EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button("Pin Selected")) EditorTarget.PinSelectedNodes();
-            if (GUILayout.Button("Unpin Selected")) EditorTarget.UnpinSelectedNodes();
+            if (GUILayout.Button("Pin Selected")) editor.PinSelectedNodes();
+            if (GUILayout.Button("Unpin Selected")) editor.UnpinSelectedNodes();
             EditorGUILayout.EndHorizontal();
 
-            EditorTarget.CreatingLinkNodeIndex = -1;
-            EditorTarget.CreatingFaceNodeIndices.Clear();
+            editor.creatingLinkNodeIndex = -1;
         }
 
         private void DrawLinksTab()
         {
-            if (EditorTarget == null) return;
-
-            bool isCreatingLink = EditorTarget.CreatingLinkNodeIndex >= 0;
-            EditorTarget.IsCreatingNode = false;
-            EditorTarget.CreatingFaceNodeIndices.Clear();
-
-            string linkInfo = EditorTarget.SelectedLinkIndices.Count switch
+            bool isCreatingLink = editor.creatingLinkNodeIndex >= 0;
+            editor.isCreatingNode = false;
+            string linkInfo = editor.selectedLinkIndices.Count switch
             {
                 0 => "No Links Selected",
-                1 => $"Link {EditorTarget.SelectedLinkIndices[0]} Selected",
-                _ => $"{EditorTarget.SelectedLinkIndices.Count} Links Selected"
+                1 => $"Link {editor.selectedLinkIndices[0]} Selected",
+                _ => $"{editor.selectedLinkIndices.Count} Links Selected"
             };
             EditorGUILayout.LabelField(linkInfo, new GUIStyle(EditorStyles.label) { alignment = TextAnchor.MiddleRight });
 
-            if (EditorTarget.SelectedLinkIndices.Count > 0 && EditorTarget.Links != null)
+            if (editor.selectedLinkIndices.Count > 0)
             {
                 EditorGUILayout.LabelField("Selected Link Details", EditorStyles.boldLabel);
                 EditorGUI.indentLevel++;
-                foreach (var idx in EditorTarget.SelectedLinkIndices)
+                foreach (var idx in editor.selectedLinkIndices)
                 {
-                    if (idx >= 0 && idx < EditorTarget.Links.Count)
+                    if (idx >= 0 && idx < editor.links.Count)
                     {
-                        var link = EditorTarget.Links[idx];
-                        EditorGUILayout.LabelField($"Link {idx}: Nodes {link.nodeA}-{link.nodeB}, Compliance: {link.compliance}, Damping: {link.damping}, Rest Length: {link.restLength}");
+                        var link = editor.links[idx];
+                        EditorGUILayout.LabelField($"Link {idx}: Nodes {link.nodeA}-{link.nodeB}, Spring: {link.springForce}, Damping: {link.damping}, Rest Length: {link.restLength}");
                     }
                 }
                 EditorGUI.indentLevel--;
             }
 
             EditorGUILayout.BeginHorizontal();
-            try
+            bool createLinkPressed = GUILayout.Button("Create Link", isCreatingLink ? new GUIStyle(GUI.skin.button) { normal = { background = Texture2D.grayTexture } } : GUI.skin.button);
+            if (createLinkPressed)
             {
-                bool createLinkPressed = GUILayout.Button("Create Link", isCreatingLink ? new GUIStyle(GUI.skin.button) { normal = { background = Texture2D.grayTexture } } : GUI.skin.button);
-                if (createLinkPressed)
+                editor.creatingLinkNodeIndex = isCreatingLink ? -1 : 0;
+            }
+            if (GUILayout.Button("Delete Selected")) editor.DeleteSelected();
+            if (GUILayout.Button("Select All"))
+            {
+                editor.selectedLinkIndices.Clear();
+                for (int i = 0; i < editor.links.Count; i++) editor.selectedLinkIndices.Add(i);
+            }
+            if (GUILayout.Button("Clear Selection")) editor.selectedLinkIndices.Clear();
+            EditorGUILayout.EndHorizontal();
+
+            materialPresetsFoldout = EditorGUILayout.Foldout(materialPresetsFoldout, "Material Presets", true, EditorStyles.boldLabel);
+            if (materialPresetsFoldout)
+            {
+                EditorGUI.indentLevel++;
+                EditorGUILayout.BeginHorizontal();
+                foreach (var preset in editor.materialPresets)
                 {
-                    EditorTarget.CreatingLinkNodeIndex = isCreatingLink ? -1 : 0;
-                }
-                if (GUILayout.Button("Delete Selected")) EditorTarget.DeleteSelected();
-                if (GUILayout.Button("Select All"))
-                {
-                    EditorTarget.SelectedLinkIndices.Clear();
-                    if (EditorTarget.Links != null)
+                    if (GUILayout.Button(preset.name))
                     {
-                        for (int i = 0; i < EditorTarget.Links.Count; i++)
-                        {
-                            EditorTarget.SelectedLinkIndices.Add(i);
-                        }
+                        ApplyPresetToSelectedLinks(preset);
                     }
                 }
-                if (GUILayout.Button("Clear Selection")) EditorTarget.SelectedLinkIndices.Clear();
-            }
-            finally
-            {
                 EditorGUILayout.EndHorizontal();
+                EditorGUI.indentLevel--;
             }
 
-            MaterialPresetsFoldout = EditorGUILayout.Foldout(MaterialPresetsFoldout, "Material Presets", true, EditorStyles.boldLabel);
-            if (MaterialPresetsFoldout && EditorTarget.MaterialPresets != null)
-            {
-                foreach (var preset in EditorTarget.MaterialPresets)
-                {
-                    EditorGUILayout.BeginHorizontal();
-                    try
-                    {
-                        if (GUILayout.Button(preset.name))
-                        {
-                            ApplyMaterialPresetToSelectedLinks(preset);
-                        }
-                    }
-                    finally
-                    {
-                        EditorGUILayout.EndHorizontal();
-                    }
-                }
-            }
-
-            if (EditorTarget.SelectedLinkIndices.Count > 0 && EditorTarget.Links != null)
+            if (editor.selectedLinkIndices.Count > 0)
             {
                 EditorGUILayout.LabelField("Selected Link Properties", EditorStyles.boldLabel);
-                var firstLink = EditorTarget.Links[EditorTarget.SelectedLinkIndices[0]];
-                float compliance = firstLink.compliance;
+                var firstLink = editor.links[editor.selectedLinkIndices[0]];
+                float springForce = firstLink.springForce;
                 float damping = firstLink.damping;
                 bool uniform = true;
 
-                foreach (int idx in EditorTarget.SelectedLinkIndices)
+                foreach (int idx in editor.selectedLinkIndices)
                 {
-                    if (idx >= 0 && idx < EditorTarget.Links.Count)
+                    var link = editor.links[idx];
+                    if (link.springForce != springForce || link.damping != damping)
                     {
-                        var link = EditorTarget.Links[idx];
-                        if (link.compliance != compliance || link.damping != damping)
-                        {
-                            uniform = false;
-                            break;
-                        }
+                        uniform = false;
+                        break;
                     }
                 }
 
                 EditorGUI.BeginChangeCheck();
-                compliance = EditorGUILayout.FloatField(new GUIContent("Compliance", "Inverse stiffness (lower = stiffer)"), Mathf.Clamp(compliance, 1e-8f, 1e-2f));
-                damping = EditorGUILayout.FloatField(new GUIContent("Damping", "Damping factor to reduce oscillations"), Mathf.Clamp(damping, 0.001f, 1.0f));
+                springForce = EditorGUILayout.FloatField(new GUIContent("Spring Force", "Force applied to maintain rest length"), Mathf.Clamp(springForce, 100f, 20000f));
+                damping = EditorGUILayout.FloatField(new GUIContent("Damping", "Damping factor to reduce oscillations"), Mathf.Clamp(damping, 0.001f, 50f));
                 if (EditorGUI.EndChangeCheck() && uniform)
                 {
-                    Undo.RecordObject(EditorTarget, "Modify Link Properties");
-                    for (int i = 0; i < EditorTarget.SelectedLinkIndices.Count; i++)
+                    Undo.RecordObject(editor, "Modify Link Properties");
+                    for (int i = 0; i < editor.selectedLinkIndices.Count; i++)
                     {
-                        int idx = EditorTarget.SelectedLinkIndices[i];
-                        if (idx >= 0 && idx < EditorTarget.Links.Count)
-                        {
-                            var link = EditorTarget.Links[idx];
-                            link.compliance = Mathf.Max(1e-8f, compliance);
-                            link.damping = Mathf.Max(0.001f, damping);
-                            EditorTarget.Links[idx] = link;
-                        }
+                        int idx = editor.selectedLinkIndices[i];
+                        var link = editor.links[idx];
+                        link.springForce = Mathf.Max(100f, springForce);
+                        link.damping = Mathf.Max(0.001f, damping);
+                        editor.links[idx] = link;
                     }
-                    EditorTarget.SaveToTrussAsset();
+                    editor.SaveToTrussAsset();
                 }
                 else if (!uniform)
                 {
-                    EditorGUILayout.HelpBox("Multiple links selected with different properties. Values shown are for the first link.", MessageType.Info);
+                    EditorGUILayout.HelpBox("Multiple links with different properties selected. Values shown are for the first selected link.", MessageType.Info);
                 }
             }
-        }
-
-        private void DrawFacesTab()
-        {
-            if (EditorTarget == null) return;
-
-            bool isCreatingFace = EditorTarget.CreatingFaceNodeIndices.Count > 0;
-            EditorTarget.IsCreatingNode = false;
-            EditorTarget.CreatingLinkNodeIndex = -1;
-
-            string faceInfo = EditorTarget.SelectedFaceIndices.Count switch
-            {
-                0 => "No Faces Selected",
-                1 => $"Face {EditorTarget.SelectedFaceIndices[0]} Selected",
-                _ => $"{EditorTarget.SelectedFaceIndices.Count} Faces Selected"
-            };
-            EditorGUILayout.LabelField(faceInfo, new GUIStyle(EditorStyles.label) { alignment = TextAnchor.MiddleRight });
-
-            if (EditorTarget.SelectedFaceIndices.Count > 0 && EditorTarget.Faces != null)
-            {
-                EditorGUILayout.LabelField("Selected Face Details", EditorStyles.boldLabel);
-                EditorGUI.indentLevel++;
-                foreach (var idx in EditorTarget.SelectedFaceIndices)
-                {
-                    if (idx >= 0 && idx < EditorTarget.Faces.Count)
-                    {
-                        var face = EditorTarget.Faces[idx];
-                        EditorGUILayout.LabelField($"Face {idx}: Nodes {face.nodeA}-{face.nodeB}-{face.nodeC}");
-                    }
-                }
-                EditorGUI.indentLevel--;
-            }
-
-            EditorGUILayout.BeginHorizontal();
-            try
-            {
-                bool createFacePressed = GUILayout.Button("Create Face", isCreatingFace ? new GUIStyle(GUI.skin.button) { normal = { background = Texture2D.grayTexture } } : GUI.skin.button);
-                if (createFacePressed)
-                {
-                    EditorTarget.CreatingFaceNodeIndices.Clear();
-                    if (!isCreatingFace) EditorTarget.CreatingFaceNodeIndices.Add(-1);
-                }
-                if (GUILayout.Button("Delete Selected")) EditorTarget.DeleteSelected();
-                if (GUILayout.Button("Select All"))
-                {
-                    EditorTarget.SelectedFaceIndices.Clear();
-                    if (EditorTarget.Faces != null)
-                    {
-                        for (int i = 0; i < EditorTarget.Faces.Count; i++) EditorTarget.SelectedFaceIndices.Add(i);
-                    }
-                }
-                if (GUILayout.Button("Clear Selection")) EditorTarget.SelectedFaceIndices.Clear();
-            }
-            finally
-            {
-                EditorGUILayout.EndHorizontal();
-            }
-
-            if (isCreatingFace)
-            {
-                EditorGUILayout.LabelField($"Select {3 - EditorTarget.CreatingFaceNodeIndices.Count} more node(s)", new GUIStyle(EditorStyles.label) { normal = { textColor = Color.blue } });
-            }
-        }
-
-        private void DrawGeneratorTab()
-        {
-            EditorGUILayout.LabelField("Mesh-Based Soft-Body Generator", EditorStyles.boldLabel);
-            EditorGUI.indentLevel++;
-
-            EditorGUI.BeginChangeCheck();
-            EditorTarget.SourceMesh = (Mesh)EditorGUILayout.ObjectField(new GUIContent("Source Mesh", "Mesh to generate truss-like nodes and beams from"), EditorTarget.SourceMesh, typeof(Mesh), false);
-            EditorTarget.Resolution = EditorGUILayout.Slider(new GUIContent("Resolution", "Controls node and beam density (1.0 = full mesh, 0.1 = ~10% vertices)"), EditorTarget.Resolution, 0.1f, 1.0f);
-            EditorTarget.UseTetrahedralConnectivity = EditorGUILayout.Toggle(new GUIContent("Tetrahedral Connectivity", "Generate additional beams for 3D soft-body stability"), EditorTarget.UseTetrahedralConnectivity);
-            if (EditorGUI.EndChangeCheck())
-            {
-                serializedObject.FindProperty("SourceMesh").objectReferenceValue = EditorTarget.SourceMesh;
-                serializedObject.FindProperty("Resolution").floatValue = EditorTarget.Resolution;
-                serializedObject.FindProperty("UseTetrahedralConnectivity").boolValue = EditorTarget.UseTetrahedralConnectivity;
-            }
-
-            EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button("Generate From Mesh"))
-            {
-                EditorTarget.GenerateNodeBeamFromMesh();
-            }
-            if (GUILayout.Button("Save Truss"))
-            {
-                EditorTarget.SaveToTrussAsset();
-            }
-            EditorGUILayout.EndHorizontal();
-
-            EditorGUILayout.HelpBox("Generates a truss-like structure for soft-body simulation from the mesh. Lower resolution merges nodes and beams (e.g., 4 nodes to 1). Use 'Save Truss' to save to the assigned TrussAsset.", MessageType.Info);
-            EditorGUI.indentLevel--;
-
-            EditorTarget.IsCreatingNode = false;
-            EditorTarget.CreatingLinkNodeIndex = -1;
-            EditorTarget.CreatingFaceNodeIndices.Clear();
-        }
-
-        private void DrawStretchLimitsTab()
-        {
-            if (EditorTarget == null) return;
-
-            EditorGUILayout.LabelField("Stretch Limits Settings", EditorStyles.boldLabel);
-            EditorGUI.indentLevel++;
-
-            EditorGUI.BeginChangeCheck();
-            float newMaxFactor = EditorGUILayout.FloatField(new GUIContent("Max Stretch Factor", "Maximum allowable stretch (e.g., 1.05 = 105% of rest length)"), EditorTarget.MaxStretchFactor);
-            float newMinFactor = EditorGUILayout.FloatField(new GUIContent("Min Stretch Factor", "Minimum allowable stretch (e.g., 0.95 = 95% of rest length)"), EditorTarget.MinStretchFactor);
-            if (EditorGUI.EndChangeCheck())
-            {
-                Undo.RecordObject(EditorTarget, "Change Stretch Limits");
-                EditorTarget.MaxStretchFactor = Mathf.Clamp(newMaxFactor, 1.0f, 1.5f);
-                EditorTarget.MinStretchFactor = Mathf.Clamp(newMinFactor, 0.5f, 1.0f);
-                EditorTarget.ApplyStretchLimits();
-                serializedObject.FindProperty("MaxStretchFactor").floatValue = EditorTarget.MaxStretchFactor;
-                serializedObject.FindProperty("MinStretchFactor").floatValue = EditorTarget.MinStretchFactor;
-            }
-
-            EditorGUILayout.BeginHorizontal();
-            try
-            {
-                if (GUILayout.Button("Apply Rigid Settings")) EditorTarget.ApplyRigidSettings();
-                if (GUILayout.Button("Reset to Defaults")) EditorTarget.ResetToDefaultSettings();
-            }
-            finally
-            {
-                EditorGUILayout.EndHorizontal();
-            }
-
-            EditorGUILayout.HelpBox("Stretch limits control how much beams can stretch or compress. Rigid settings use lower stretch factors and stiffer properties.", MessageType.Info);
-            EditorGUI.indentLevel--;
-        }
-
-        private void DrawVisualizationTab()
-        {
-            EditorGUILayout.LabelField("Visualization Settings", EditorStyles.boldLabel);
-            EditorGUI.indentLevel++;
-
-            EditorGUI.BeginChangeCheck();
-            EditorTarget.VisualizeForces = EditorGUILayout.Toggle(new GUIContent("Visualize Forces", "Show forces: red (tension), blue (compression), green (collisions), magenta (ground), cyan (face-node)"), EditorTarget.VisualizeForces);
-            EditorTarget.NodeSize = EditorGUILayout.FloatField(new GUIContent("Node Size", "Size of node spheres in Scene view"), Mathf.Max(0.01f, EditorTarget.NodeSize));
-            EditorTarget.LinkThickness = EditorGUILayout.FloatField(new GUIContent("Link Thickness", "Thickness of link lines in Scene view"), Mathf.Max(0.1f, EditorTarget.LinkThickness));
-            EditorTarget.NodeColor = EditorGUILayout.ColorField(new GUIContent("Node Color", "Color for unselected nodes"), EditorTarget.NodeColor);
-            EditorTarget.SelectedNodeColor = EditorGUILayout.ColorField(new GUIContent("Selected Node Color", "Color for selected nodes"), EditorTarget.SelectedNodeColor);
-            EditorTarget.PinnedNodeColor = EditorGUILayout.ColorField(new GUIContent("Pinned Node Color", "Color for pinned nodes"), EditorTarget.PinnedNodeColor);
-            EditorTarget.LinkColor = EditorGUILayout.ColorField(new GUIContent("Link Color", "Color for unselected links"), EditorTarget.LinkColor);
-            EditorTarget.SelectedLinkColor = EditorGUILayout.ColorField(new GUIContent("Selected Link Color", "Color for selected links"), EditorTarget.SelectedLinkColor);
-            EditorTarget.FaceColor = EditorGUILayout.ColorField(new GUIContent("Face Color", "Color for unselected faces"), EditorTarget.FaceColor);
-            EditorTarget.SelectedFaceColor = EditorGUILayout.ColorField(new GUIContent("Selected Face Color", "Color for selected faces"), EditorTarget.SelectedFaceColor);
-            if (EditorGUI.EndChangeCheck())
-            {
-                Undo.RecordObject(EditorTarget, "Change Visualization Settings");
-                serializedObject.FindProperty("VisualizeForces").boolValue = EditorTarget.VisualizeForces;
-                serializedObject.FindProperty("NodeSize").floatValue = EditorTarget.NodeSize;
-                serializedObject.FindProperty("LinkThickness").floatValue = EditorTarget.LinkThickness;
-                serializedObject.FindProperty("NodeColor").colorValue = EditorTarget.NodeColor;
-                serializedObject.FindProperty("SelectedNodeColor").colorValue = EditorTarget.SelectedNodeColor;
-                serializedObject.FindProperty("PinnedNodeColor").colorValue = EditorTarget.PinnedNodeColor;
-                serializedObject.FindProperty("LinkColor").colorValue = EditorTarget.LinkColor;
-                serializedObject.FindProperty("SelectedLinkColor").colorValue = EditorTarget.SelectedLinkColor;
-                serializedObject.FindProperty("FaceColor").colorValue = EditorTarget.FaceColor;
-                serializedObject.FindProperty("SelectedFaceColor").colorValue = EditorTarget.SelectedFaceColor;
-                EditorTarget.UpdateVisualization();
-            }
-
-            EditorGUI.indentLevel--;
         }
 
         private void DrawDebuggingTab()
         {
-            EditorGUILayout.LabelField("Debugging Settings", EditorStyles.boldLabel);
-            EditorGUI.indentLevel++;
-
-            EditorTarget.EnableDebugLogs = EditorGUILayout.Toggle(new GUIContent("Enable Debug Logs", "Log detailed information for operations like pinning and stretch limits"), EditorTarget.EnableDebugLogs);
-            serializedObject.FindProperty("EnableDebugLogs").boolValue = EditorTarget.EnableDebugLogs;
+            EditorGUILayout.LabelField("Debugging Tools", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("enableDebugLogs"), new GUIContent("Enable Debug Logs", "Log detailed operations like pinning and stretch limit application"));
 
             if (GUILayout.Button("Validate Node Connectivity"))
             {
-                EditorTarget.ValidateNodeConnectivity();
-            }
-
-            EditorGUILayout.HelpBox("Use 'Validate Node Connectivity' to check for nodes with too few or too many connections. Debug logs provide detailed operation feedback.", MessageType.Info);
-            EditorGUI.indentLevel--;
-        }
-
-        private void ApplyMaterialPresetToSelectedLinks(MaterialPreset preset)
-        {
-            Undo.RecordObject(EditorTarget, $"Apply {preset.name} Preset");
-            for (int i = 0; i < EditorTarget.SelectedLinkIndices.Count; i++)
-            {
-                int idx = EditorTarget.SelectedLinkIndices[i];
-                if (idx >= 0 && idx < EditorTarget.Links.Count)
+                nodeConnections.Clear();
+                if (editor.nodes.Count == 0 || editor.links.Count == 0)
                 {
-                    var link = EditorTarget.Links[idx];
-                    link.compliance = preset.compliance;
-                    link.damping = preset.damping;
-                    EditorTarget.Links[idx] = link;
+                    EditorGUILayout.LabelField("No nodes or links to validate.");
+                }
+                else
+                {
+                    for (int i = 0; i < editor.nodes.Count; i++) nodeConnections[i] = 0;
+                    foreach (var link in editor.links)
+                    {
+                        if (link.nodeA >= 0 && link.nodeA < editor.nodes.Count) nodeConnections[link.nodeA]++;
+                        if (link.nodeB >= 0 && link.nodeB < editor.nodes.Count) nodeConnections[link.nodeB]++;
+                    }
                 }
             }
-            EditorTarget.NodeMass = preset.nodeMass;
-            EditorTarget.MaxStretchFactor = preset.maxStretchFactor;
-            EditorTarget.MinStretchFactor = preset.minStretchFactor;
-            EditorTarget.ApplyStretchLimits();
-            EditorTarget.SaveToTrussAsset();
-            if (EditorTarget.EnableDebugLogs)
-                Debug.Log($"Applied {preset.name} preset: compliance={preset.compliance}, damping={preset.damping}, nodeMass={preset.nodeMass}, maxStretchFactor={preset.maxStretchFactor}, minStretchFactor={preset.minStretchFactor}.", EditorTarget);
+
+            if (nodeConnections.Count > 0)
+            {
+                EditorGUILayout.LabelField("Node Connectivity Details", EditorStyles.boldLabel);
+                EditorGUI.indentLevel++;
+                foreach (var pair in nodeConnections.OrderBy(kvp => kvp.Key))
+                {
+                    EditorGUILayout.LabelField($"Node {pair.Key}: {pair.Value} connections");
+                }
+                EditorGUI.indentLevel--;
+            }
+
+            if (GUILayout.Button("Reapply Truss Limits and Pinned Nodes"))
+            {
+                editor.ApplyStretchLimits();
+                editor.ApplyPinnedNodes();
+            }
         }
 
-        private void OnSceneGUI()
+                private void DrawVisualizationTab()
         {
-          if (EditorTarget == null) return;
-          if (Application.isPlaying) return;
+            visualizationFoldout = EditorGUILayout.Foldout(visualizationFoldout, "Visualization Settings", true, EditorStyles.boldLabel);
+            if (visualizationFoldout)
+            {
+                EditorGUI.indentLevel++;
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("visualizeForces"), new GUIContent("Visualize Forces", "Show force vectors in simulation (red: tension, blue: compression)"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("nodeSize"), new GUIContent("Node Size", "Size of node spheres in Scene view"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("linkThickness"), new GUIContent("Link Thickness", "Thickness of link lines in Scene view"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("nodeColor"), new GUIContent("Node Color", "Color for unselected nodes"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("selectedNodeColor"), new GUIContent("Selected Node Color"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("pinnedNodeColor"), new GUIContent("Pinned Node Color"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("linkColor"), new GUIContent("Link Color", "Color for unselected links"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("selectedLinkColor"), new GUIContent("Selected Link Color"));
+                EditorGUI.indentLevel--;
+            }
+        }
 
-          Event e = Event.current;
-          HandlePosition = EditorTarget.GetSelectionCenter();
-          Tools.current = Tool.Move;
+          private void DrawStretchLimitsTab()
+        {
+            stretchLimitsFoldout = EditorGUILayout.Foldout(stretchLimitsFoldout, "Stretch Limits", true, EditorStyles.boldLabel);
+            if (stretchLimitsFoldout)
+            {
+                EditorGUI.indentLevel++;
+                EditorGUI.BeginChangeCheck();
+                float newMaxFactor = EditorGUILayout.FloatField(new GUIContent("Max Stretch Factor", "Maximum allowable stretch (e.g., 1.05 = 105% of rest length)"), editor.maxStretchFactor);
+                float newMinFactor = EditorGUILayout.FloatField(new GUIContent("Min Stretch Factor", "Minimum allowable stretch (e.g., 0.95 = 95% of rest length)"), editor.minStretchFactor);
+                if (EditorGUI.EndChangeCheck())
+                {
+                    Undo.RecordObject(editor, "Change Stretch Limits");
+                    editor.maxStretchFactor = Mathf.Clamp(newMaxFactor, 1.0f, 1.5f);
+                    editor.minStretchFactor = Mathf.Clamp(newMinFactor, 0.5f, 1.0f);
+                    editor.ApplyStretchLimits();
+                    serializedObject.FindProperty("maxStretchFactor").floatValue = editor.maxStretchFactor;
+                    serializedObject.FindProperty("minStretchFactor").floatValue = editor.minStretchFactor;
+                }
 
-          if (EditorTarget.IsCreatingNode)
-          {
-              HandleUtility.AddDefaultControl(GUIUtility.GetControlID(FocusType.Passive));
-              if (e.type == EventType.MouseDown && e.button == 0 && !e.alt)
-               {
-                  Ray ray = HandleUtility.GUIPointToWorldRay(e.mousePosition);
-                  if (Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity))
-                   {
-                     EditorTarget.CreateNode(hit.point);
-                     e.Use();
-                   }
+                EditorGUILayout.BeginHorizontal();
+                if (GUILayout.Button("Apply Rigid Settings")) editor.ApplyRigidSettings();
+                if (GUILayout.Button("Reset to Defaults")) editor.ResetToDefaultSettings();
+                EditorGUILayout.EndHorizontal();
+                EditorGUI.indentLevel--;
+            }
+        }
+
+        private void ApplyPresetToSelectedLinks(MaterialPreset preset)
+        {
+            Undo.RecordObject(editor, "Apply Material Preset");
+            for (int i = 0; i < editor.selectedLinkIndices.Count; i++)
+            {
+                int idx = editor.selectedLinkIndices[i];
+                var link = editor.links[idx];
+                link.springForce = preset.springForce;
+                link.damping = preset.damping;
+                editor.links[idx] = link;
+            }
+            editor.nodeMass = preset.nodeMass;
+            editor.maxStretchFactor = preset.maxStretchFactor;
+            editor.minStretchFactor = preset.minStretchFactor;
+            editor.ApplyStretchLimits();
+            editor.SaveToTrussAsset();
+        }
+
+        public void OnSceneGUI()
+        {
+            if (Application.isPlaying) return;       // stop the whole editor
+            
+            Event e = Event.current;
+            int controlID = GUIUtility.GetControlID(FocusType.Passive);
+            HandleUtility.AddDefaultControl(controlID);
+
+            if (editor.currentTab == 1 || editor.currentTab == 2)
+            {
+                DrawNodesAndLinks();
+            }
+
+            if (editor.isCreatingNode && editor.currentTab == 1)
+            {
+                HandleNodeCreation(e);
+            }
+            else if (editor.creatingLinkNodeIndex >= 0 && editor.currentTab == 2)
+            {
+                HandleLinkCreation(e);
+            }
+            else if (e.type == EventType.MouseDown && e.button == 0 && !editor.isCreatingNode && editor.creatingLinkNodeIndex < 0)
+            {
+                if (editor.currentTab == 1) HandleNodeSelection(e);
+                else if (editor.currentTab == 2) HandleLinkSelection(e);
+            }
+
+            if (editor.selectedNodeIndices.Count > 0 && editor.currentTab == 1)
+            {
+                HandleNodeTransform(e);
+            }
+
+            if (GUI.changed) EditorUtility.SetDirty(editor);
+            HandleUtility.Repaint();
+        }
+
+        private void DrawNodesAndLinks()
+        {
+            for (int i = 0; i < editor.nodes.Count; i++)
+            {
+                Vector3 pos = editor.transform.TransformPoint(editor.nodes[i]);
+                Handles.color = editor.pinnedNodes.Contains(i) ? editor.pinnedNodeColor : (editor.selectedNodeIndices.Contains(i) ? editor.selectedNodeColor : editor.nodeColor);
+                float size = HandleUtility.GetHandleSize(pos) * editor.nodeSize;
+                Handles.SphereHandleCap(0, pos, Quaternion.identity, size, EventType.Repaint);
+            }
+
+            for (int i = 0; i < editor.links.Count; i++)
+            {
+                Handles.color = editor.selectedLinkIndices.Contains(i) ? editor.selectedLinkColor : editor.linkColor;
+                var link = editor.links[i];
+                if (link.nodeA >= 0 && link.nodeA < editor.nodes.Count && link.nodeB >= 0 && link.nodeB < editor.nodes.Count)
+                {
+                    Vector3 posA = editor.transform.TransformPoint(editor.nodes[link.nodeA]);
+                    Vector3 posB = editor.transform.TransformPoint(editor.nodes[link.nodeB]);
+                    Handles.DrawLine(posA, posB, editor.linkThickness);
                 }
             }
-            else if (EditorTarget.CreatingLinkNodeIndex >= 0)
+        }
+
+        private void HandleNodeCreation(Event e)
+        {
+            Ray mouseRay = HandleUtility.GUIPointToWorldRay(e.mousePosition);
+            RaycastHit hit;
+            Vector3 position;
+            bool hitValidPosition = Physics.Raycast(mouseRay, out hit);
+
+            position = hitValidPosition ? hit.point : mouseRay.origin + mouseRay.direction * 10f;
+            Handles.color = hitValidPosition ? Color.green : Color.red;
+            Handles.SphereHandleCap(0, position, Quaternion.identity, editor.nodeSize, EventType.Repaint);
+
+            if (e.type == EventType.MouseDown && e.button == 0)
             {
-               HandleUtility.AddDefaultControl(GUIUtility.GetControlID(FocusType.Passive));
-               if (e.type == EventType.MouseDown && e.button == 0 && !e.alt)
-               {
-                  Ray ray = HandleUtility.GUIPointToWorldRay(e.mousePosition);
-                  var core = EditorTarget.GetSoftBodyCore();
-                  if (core != null)
-                  {
-                    int nodeIndex = core.FindClosestNodeToRay(ray, 100f);
-                    if (nodeIndex >= 0)
-                    {
-                        if (EditorTarget.CreatingLinkNodeIndex == 0)
-                        {
-                         EditorTarget.CreatingLinkNodeIndex = nodeIndex;
-                        }
-                        else
-                        {
-                          EditorTarget.CreateLink(EditorTarget.CreatingLinkNodeIndex, nodeIndex);
-                          EditorTarget.CreatingLinkNodeIndex = -1;
-                        }
-                        e.Use();
-                    }
-                  }
-                  else
-                  {
-                    Debug.LogWarning("Cannot create link: SoftBodyCore is null. Ensure a SoftBody component is attached.", EditorTarget);
-                  }
-                }
+                position = editor.transform.InverseTransformPoint(position);
+                editor.CreateNode(position);
+                e.Use();
             }
-            else if (EditorTarget.CreatingFaceNodeIndices.Count > 0)
+        }
+
+        private void HandleLinkCreation(Event e)
+        {
+            for (int i = 0; i < editor.nodes.Count; i++)
             {
-               HandleUtility.AddDefaultControl(GUIUtility.GetControlID(FocusType.Passive));
-               if (e.type == EventType.MouseDown && e.button == 0 && !e.alt)
-               {
-                  Ray ray = HandleUtility.GUIPointToWorldRay(e.mousePosition);
-                  var core = EditorTarget.GetSoftBodyCore();
-                  if (core != null)
+                Vector3 position = editor.transform.TransformPoint(editor.nodes[i]);
+                Handles.color = Color.blue;
+                float size = HandleUtility.GetHandleSize(position) * editor.nodeSize * 2f;
+                Handles.SphereHandleCap(0, position, Quaternion.identity, size, EventType.Repaint);
+
+                if (e.type == EventType.MouseDown && e.button == 0)
+                {
+                    if (HandleUtility.DistanceToCircle(position, size) <= 0)
                     {
-                      int nodeIndex = core.FindClosestNodeToRay(ray, 100f);
-                      if (nodeIndex >= 0 && !EditorTarget.CreatingFaceNodeIndices.Contains(nodeIndex))
+                        if (editor.creatingLinkNodeIndex == 0)
                         {
-                          EditorTarget.CreatingFaceNodeIndices.Add(nodeIndex);
-                          if (EditorTarget.CreatingFaceNodeIndices.Count == 3)
-                            {
-                               EditorTarget.CreateFace(
-                               EditorTarget.CreatingFaceNodeIndices[0],
-                               EditorTarget.CreatingFaceNodeIndices[1],
-                               EditorTarget.CreatingFaceNodeIndices[2]);
-                               EditorTarget.CreatingFaceNodeIndices.Clear();
-                            }
+                            editor.creatingLinkNodeIndex = i;
+                        }
+                        else if (i != editor.creatingLinkNodeIndex)
+                        {
+                            editor.CreateLink(editor.creatingLinkNodeIndex, i);
+                            editor.creatingLinkNodeIndex = -1;
                             e.Use();
                         }
                     }
-                   else
+                }
+            }
+
+            if (editor.creatingLinkNodeIndex >= 0 && editor.creatingLinkNodeIndex < editor.nodes.Count)
+            {
+                Vector3 startPos = editor.transform.TransformPoint(editor.nodes[editor.creatingLinkNodeIndex]);
+                Ray mouseRay = HandleUtility.GUIPointToWorldRay(e.mousePosition);
+                Vector3 endPos = mouseRay.origin + mouseRay.direction * 10f;
+                Handles.color = Color.red;
+                Handles.DrawLine(startPos, endPos, 2f);
+            }
+        }
+
+        private void HandleNodeSelection(Event e)
+        {
+            for (int i = 0; i < editor.nodes.Count; i++)
+            {
+                Vector3 pos = editor.transform.TransformPoint(editor.nodes[i]);
+                float size = HandleUtility.GetHandleSize(pos) * editor.nodeSize;
+                if (HandleUtility.DistanceToCircle(pos, size) <= 0)
+                {
+                    Undo.RecordObject(editor, "Select Node");
+                    if (e.control)
                     {
-                      Debug.LogWarning("Cannot create face: SoftBodyCore is null. Ensure a SoftBody component is attached.", EditorTarget);
+                        if (editor.selectedNodeIndices.Contains(i))
+                            editor.selectedNodeIndices.Remove(i);
+                        else
+                            editor.selectedNodeIndices.Add(i);
+                    }
+                    else
+                    {
+                        editor.selectedNodeIndices.Clear();
+                        editor.selectedNodeIndices.Add(i);
+                    }
+                    editor.selectedLinkIndices.Clear();
+                    EditorUtility.SetDirty(editor);
+                    e.Use();
+                    break;
+                }
+            }
+        }
+
+        private void HandleLinkSelection(Event e)
+        {
+            for (int i = 0; i < editor.links.Count; i++)
+            {
+                var link = editor.links[i];
+                if (link.nodeA >= 0 && link.nodeA < editor.nodes.Count && link.nodeB >= 0 && link.nodeB < editor.nodes.Count)
+                {
+                    Vector3 posA = editor.transform.TransformPoint(editor.nodes[link.nodeA]);
+                    Vector3 posB = editor.transform.TransformPoint(editor.nodes[link.nodeB]);
+                    Vector3 guiPointA = HandleUtility.WorldToGUIPoint(posA);
+                    Vector3 guiPointB = HandleUtility.WorldToGUIPoint(posB);
+                    if (HandleUtility.DistancePointToLineSegment(e.mousePosition, guiPointA, guiPointB) < 3f)
+                    {
+                        Undo.RecordObject(editor, "Select Link");
+                        if (e.control)
+                        {
+                            if (editor.selectedLinkIndices.Contains(i))
+                                editor.selectedLinkIndices.Remove(i);
+                            else
+                                editor.selectedLinkIndices.Add(i);
+                        }
+                        else
+                        {
+                            editor.selectedLinkIndices.Clear();
+                            editor.selectedLinkIndices.Add(i);
+                        }
+                        editor.selectedNodeIndices.Clear();
+                        EditorUtility.SetDirty(editor);
+                        e.Use();
+                        break;
                     }
                 }
             }
-            else if (EditorTarget.SelectedNodeIndices.Count > 0)
-            {
-               EditorGUI.BeginChangeCheck();
-               Vector3 newPosition = Handles.PositionHandle(HandlePosition, Quaternion.identity);
-               if (EditorGUI.EndChangeCheck())
-                {
-                  Vector3 delta = newPosition - HandlePosition;
-                  EditorTarget.TransformSelectedNodes(delta);
-                } 
-            }
-
-            // Conditional drawing based on CurrentTab and creation mode
-            if (EditorTarget.CurrentTab == 1) // Nodes Tab
-            {
-              DrawNodes();
-            }
-            else if (EditorTarget.CurrentTab == 2) // Links Tab
-            {
-                if (EditorTarget.CreatingLinkNodeIndex >= 0)
-                {
-                  DrawNodes();
-                }
-                else
-                {
-                  DrawLinks();
-                }
-            }
-            else if (EditorTarget.CurrentTab == 3) // Faces Tab
-            {
-              if (EditorTarget.CreatingFaceNodeIndices.Count > 0)
-                {
-                   DrawNodes();
-                }
-                else
-                {
-                   DrawFaces();
-                }
-            }
-
-            DrawNodeConnections();
         }
 
-        private void DrawNodes()
+        private void HandleNodeTransform(Event e)
         {
-            if (EditorTarget.Nodes == null) return;
+            editor.selectedNodeIndices.RemoveAll(i => i < 0 || i >= editor.nodes.Count);
+            if (editor.selectedNodeIndices.Count == 0) return;
 
-            for (int i = 0; i < EditorTarget.Nodes.Count; i++)
+            Vector3 pos = editor.transform.TransformPoint(editor.GetSelectionCenter());
+            if (!isDragging)
             {
-                Vector3 worldPos = EditorTarget.transform.TransformPoint(EditorTarget.Nodes[i]);
-                Color color = EditorTarget.PinnedNodes.Contains(i) ? EditorTarget.PinnedNodeColor :
-                              EditorTarget.SelectedNodeIndices.Contains(i) ? EditorTarget.SelectedNodeColor : EditorTarget.NodeColor;
-                Handles.color = color;
-                Handles.SphereHandleCap(0, worldPos, Quaternion.identity, EditorTarget.NodeSize, EventType.Repaint);
-                if (EditorTarget.SelectedNodeIndices.Contains(i))
-                {
-                    Handles.Label(worldPos + Vector3.up * EditorTarget.NodeSize, $"Node {i}");
-                }
+                handlePosition = pos;
             }
-        }
 
-        private void DrawLinks()
-        {
-            if (EditorTarget.Links == null) return;
-
-            for (int i = 0; i < EditorTarget.Links.Count; i++)
+            EditorGUI.BeginChangeCheck();
+            Vector3 newPos = Handles.PositionHandle(pos, Quaternion.identity);
+            if (EditorGUI.EndChangeCheck())
             {
-                var link = EditorTarget.Links[i];
-                if (link.nodeA < 0 || link.nodeA >= EditorTarget.Nodes.Count || link.nodeB < 0 || link.nodeB >= EditorTarget.Nodes.Count) continue;
-
-                Vector3 posA = EditorTarget.transform.TransformPoint(EditorTarget.Nodes[link.nodeA]);
-                Vector3 posB = EditorTarget.transform.TransformPoint(EditorTarget.Nodes[link.nodeB]);
-                Handles.color = EditorTarget.SelectedLinkIndices.Contains(i) ? EditorTarget.SelectedLinkColor : EditorTarget.LinkColor;
-                Handles.DrawLine(posA, posB, EditorTarget.LinkThickness);
-                if (EditorTarget.SelectedLinkIndices.Contains(i))
-                {
-                    Vector3 mid = (posA + posB) * 0.5f;
-                    Handles.Label(mid, $"Link {i}");
-                }
+                isDragging = true;
+                Vector3 delta = editor.transform.InverseTransformPoint(newPos) - editor.transform.InverseTransformPoint(pos);
+                editor.TransformSelectedNodes(delta);
+                handlePosition = newPos;
             }
-        }
-
-        private void DrawFaces()
-        {
-            if (EditorTarget.Faces == null) return;
-
-            for (int i = 0; i < EditorTarget.Faces.Count; i++)
+            else if (e.type == EventType.MouseUp)
             {
-                var face = EditorTarget.Faces[i];
-                if (face.nodeA < 0 || face.nodeA >= EditorTarget.Nodes.Count ||
-                    face.nodeB < 0 || face.nodeB >= EditorTarget.Nodes.Count ||
-                    face.nodeC < 0 || face.nodeC >= EditorTarget.Nodes.Count) continue;
-
-                Vector3 posA = EditorTarget.transform.TransformPoint(EditorTarget.Nodes[face.nodeA]);
-                Vector3 posB = EditorTarget.transform.TransformPoint(EditorTarget.Nodes[face.nodeB]);
-                Vector3 posC = EditorTarget.transform.TransformPoint(EditorTarget.Nodes[face.nodeC]);
-
-                Handles.color = EditorTarget.SelectedFaceIndices.Contains(i) ? EditorTarget.SelectedFaceColor : EditorTarget.FaceColor;
-                Handles.DrawLine(posA, posB, EditorTarget.LinkThickness);
-                Handles.DrawLine(posB, posC, EditorTarget.LinkThickness);
-                Handles.DrawLine(posC, posA, EditorTarget.LinkThickness);
-
-                if (EditorTarget.SelectedFaceIndices.Contains(i))
-                {
-                    Vector3 centroid = (posA + posB + posC) / 3f;
-                    Handles.Label(centroid, $"Face {i}");
-                }
-            }
-        }
-
-        private void DrawNodeConnections()
-        {
-            NodeConnections.Clear();
-            for (int i = 0; i < EditorTarget.Nodes.Count; i++)
-                NodeConnections[i] = 0;
-
-            foreach (var link in EditorTarget.Links)
-            {
-                if (link.nodeA >= 0 && link.nodeA < EditorTarget.Nodes.Count) NodeConnections[link.nodeA]++;
-                if (link.nodeB >= 0 && link.nodeB < EditorTarget.Nodes.Count) NodeConnections[link.nodeB]++;
+                isDragging = false;
             }
         }
     }
 #endif
-}
-[System.Serializable]
-public struct MaterialPreset
-{
-    public string name;
-    public float compliance;
-    public float damping;
-    public float nodeMass;
-    public float maxStretchFactor;
-    public float minStretchFactor;
-    public float plasticityThreshold;
-    public float plasticityRate;
-}
-#endregion
 
-[System.Serializable]
-public struct Link
-{
-    public int nodeA;
-    public int nodeB;
-    public float compliance;
-    public float damping;
-    public float restLength;
-}
+    [System.Serializable]
+    public struct Link
+    {
+        public int nodeA;
+        public int nodeB;
+        public float springForce;
+        public float damping;
+        public float restLength;
+    }
 
-[System.Serializable]
-public struct Face
-{
-    public int nodeA;
-    public int nodeB;
-    public int nodeC;
+    [System.Serializable]
+    public struct MaterialPreset
+    {
+        public string name;
+        public float springForce;
+        public float damping;
+        public float nodeMass;
+        public float maxStretchFactor;
+        public float minStretchFactor;
+    }
 }
