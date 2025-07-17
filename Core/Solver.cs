@@ -10,6 +10,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using DynamicEngine;
+using UnityEditor;
 
 namespace DynamicEngine
 {
@@ -17,7 +18,7 @@ namespace DynamicEngine
     {
         public readonly NodeManager nodeManager;
         public List<Beam> beams;
-        private readonly MeshDeformer meshDeformer;
+        public readonly MeshDeformer meshDeformer;
         private MaterialProperties materialProps;
         public readonly List<Vector3> collisionPoints;
         private float maxStretchFactor = 1.05f;
@@ -44,9 +45,9 @@ namespace DynamicEngine
         // ------------------------------------------------------------------
         public void GenerateNodesAndBeams(
             Vector3[] positions,
-            float     connectionDistance = -1f,
-            Beam[]    beamsArray         = null,
-            Transform parent             = null)
+            float connectionDistance = -1f,
+            Beam[] beamsArray = null,
+            Transform parent = null)
         {
             if (positions == null || positions.Length == 0 ||
                 (connectionDistance <= 0f && beamsArray == null))
@@ -57,17 +58,9 @@ namespace DynamicEngine
 
             if (parent == null)
             {
-               Debug.LogWarning("GenerateNodesAndBeams: parent Transform is null.");
-               return;
+                Debug.LogWarning("GenerateNodesAndBeams: parent Transform is null.");
+                return;
             }
-            // 1) Destroy any existing “Node_*” children
-            for (int i = parent.childCount - 1; i >= 0; i--)
-            {
-                Transform child = parent.GetChild(i);
-                if (child.name.StartsWith("Node_"))
-                    Object.DestroyImmediate(child.gameObject);
-            }
-
             // 2) Clear lists
             nodeManager.Clear();
             beams.Clear();
@@ -120,7 +113,6 @@ namespace DynamicEngine
             }
 
             meshDeformer.MapVerticesToNodes(parent, nodeManager.Nodes, nodeManager.InitialPositions);
-            Debug.Log($"Generated {nodeManager.Nodes.Count} nodes, {beams.Count} beams");
         }
 
         // ------------------------------------------------------------------
@@ -622,6 +614,23 @@ namespace DynamicEngine
         public void SetMaterialProperties(MaterialProperties props)
         {
             this.materialProps = props ?? MaterialProperties.GetDefault(MaterialType.Custom);
+        }
+        private static void DelayedDestroyNodes(Transform parent)
+        {
+            // Schedule the destruction on the next idle frame
+            EditorApplication.delayCall += () =>
+            {
+                if (parent == null) return;   // safety: object was deleted
+
+                Undo.RegisterCompleteObjectUndo(parent, "Clear old soft-body nodes");
+
+                for (int i = parent.childCount - 1; i >= 0; i--)
+                {
+                    Transform child = parent.GetChild(i);
+                    if (child.name.StartsWith("Node_"))
+                        Undo.DestroyObjectImmediate(child.gameObject);
+                }
+            };
         }
     }
 }
