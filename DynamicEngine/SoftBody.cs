@@ -19,9 +19,6 @@ namespace DynamicEngine
 {
     public class SoftBody : MonoBehaviour
     {
-        // ──────────────────────────────────────────────────────────
-        //  Material presets (unchanged)
-        // ──────────────────────────────────────────────────────────
         private static readonly Dictionary<MaterialType, MaterialProperties> MaterialPresets =
             new Dictionary<MaterialType, MaterialProperties>
             {
@@ -30,14 +27,10 @@ namespace DynamicEngine
                 { MaterialType.Rubber,  new MaterialProperties(0.5f, 1e-3f, 0.3f, 0.1f, 0.15f, 0.1f, 0.05f) }
             };
 
-        [Header("Material Settings")]
-        [SerializeField] private MaterialType materialType = MaterialType.Rubber;
-        [SerializeField] private MaterialProperties customMaterialProps = new MaterialProperties(0.5f, 1e-5f, 0.1f, 0.1f, 0.5f, 0.05f, 0.1f);
-
         [Header("Physics Settings")]
         [SerializeField, Range(0.01f, 0.5f)] private float nodeRadius = 0.05f;
-        [SerializeField, Range(0.5f, 5f)]   private float influenceRadius = 1f;
-        [SerializeField, Range(0.5f, 5f)]   private float beamConnectionDistance = 1.5f;
+        [SerializeField, Range(0.5f, 5f)] private float influenceRadius = 1f;
+        [SerializeField, Range(0.5f, 5f)] private float beamConnectionDistance = 1.5f;
 
         [Header("Visualization")]
         [SerializeField] public bool showGizmos = true;
@@ -53,18 +46,11 @@ namespace DynamicEngine
         private Plane dragPlane;
         private int draggedNodeIndex = -1;
 
-        private MaterialProperties MaterialProps =>
-            materialType == MaterialType.Custom ? customMaterialProps : MaterialPresets[materialType];
-
-        // ──────────────────────────────────────────────────────────
-        //  Unity messages
-        // ──────────────────────────────────────────────────────────
-        private void Awake()  => InitializeInPlayMode();
+        private void Awake() => InitializeInPlayMode();
         private void OnValidate()
         {
             ApplyMaterialProperties();
             ValidateParameters();
-            InitializeInEditMode();
         }
 
         private void InitializeInPlayMode()
@@ -73,26 +59,26 @@ namespace DynamicEngine
             if (Application.isPlaying) InitializeCore();
         }
 
-        private void InitializeInEditMode()
+        public void InitializeInEditMode()
         {
             if (!Application.isPlaying)
             {
                 InitializeCore();
 #if UNITY_EDITOR
                 EditorUtility.SetDirty(this);
-            #endif
+#endif
             }
         }
-            
+
 
         private bool InitializeCore()
         {
             if (!SetupMesh()) return false;
 
-            core = new SoftBodyCore(nodeRadius, influenceRadius, MaterialProps, mesh, mesh.vertices);
-
+            // SoftBody itself no longer owns material data – pass a default
+            core = new SoftBodyCore(nodeRadius, influenceRadius, MaterialProperties.GetDefault(MaterialType.Rubber), mesh, mesh.vertices);
             if (trussAsset != null) ApplyTruss();
-            else                    core.GenerateCubeTest(transform);
+            else core.GenerateCubeTest(transform);
 
             return true;
         }
@@ -107,16 +93,11 @@ namespace DynamicEngine
                 : meshFilter.sharedMesh;
             return true;
         }
-
-        // ──────────────────────────────────────────────────────────
-        //  Public helpers
-        // ──────────────────────────────────────────────────────────
-        
         public TrussAsset GetTrussAsset()
         {
             return trussAsset;
-        } 
-        
+        }
+
         public void ApplyTruss()
         {
             if (trussAsset == null) { Debug.LogWarning("No TrussAsset assigned.", this); return; }
@@ -125,7 +106,7 @@ namespace DynamicEngine
             var beams = trussAsset.GetBeams();
 
             if (positions == null || positions.Length < 2) { Debug.LogWarning("Invalid node positions.", this); return; }
-            if (beams == null || beams.Length < 1) { Debug.LogWarning("No beams defined.", this); return; }
+
 
             core.GenerateNodesAndBeams(positions, beamsArray: beams, parent: transform);
         }
@@ -139,24 +120,24 @@ namespace DynamicEngine
             EditorUtility.SetDirty(this);
 #endif
         }
-
-        // ──────────────────────────────────────────────────────────
-        //  Unity lifecycle
-        // ──────────────────────────────────────────────────────────
-        void Update()   => HandleMouseInteraction();
+        void Update() => HandleMouseInteraction();
         void FixedUpdate()
         {
             if (core != null) { core.Solve(); core.DeformMesh(transform); }
         }
-        void OnDestroy() => core?.nodeManager.Clear();
+        void OnDestroy()
+        {
+            core?.nodeManager.Clear();
+            CleanupNodes(); 
+        }
 
-        // ──────────────────────────────────────────────────────────
-        //  Utilities
-        // ──────────────────────────────────────────────────────────
+        private void OnDisable()
+        {
+           CleanupNodes();
+        }
         private void ApplyMaterialProperties()
         {
-            if (materialType != MaterialType.Custom && MaterialPresets.TryGetValue(materialType, out var props))
-                customMaterialProps = props;
+            
         }
 
         private void ValidateParameters()
@@ -166,9 +147,6 @@ namespace DynamicEngine
                 beamConnectionDistance = nodeRadius * 2f;
         }
 
-        // ──────────────────────────────────────────────────────────
-        //  Mouse interaction & gizmos (unchanged)
-        // ──────────────────────────────────────────────────────────
         #region Mouse & Gizmos
         private void HandleMouseInteraction()
         {
@@ -223,5 +201,38 @@ namespace DynamicEngine
         }
 #endif
         #endregion
+    
+    private void CleanupNodes()
+        {
+            if (transform == null) return;
+
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+            {
+                // Editor: safe delayed destruction
+                EditorApplication.delayCall += () =>
+                {
+                    if (this == null || transform == null) return;
+                    for (int i = transform.childCount - 1; i >= 0; i--)
+                    {
+                        Transform child = transform.GetChild(i);
+                        if (child.name.StartsWith("Node_"))
+                            Undo.DestroyObjectImmediate(child.gameObject);
+                    }
+                };
+            }
+            else
+#endif
+            {
+                // Runtime: standard Destroy
+                for (int i = transform.childCount - 1; i >= 0; i--)
+                {
+                    Transform child = transform.GetChild(i);
+                    if (child.name.StartsWith("Node_"))
+                        Destroy(child.gameObject);
+                }
+            }
+        }
+
     }
 }
