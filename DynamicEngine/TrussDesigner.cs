@@ -628,29 +628,24 @@ namespace DynamicEngine
         
 
         private void DrawSoftBodyReference()
-        {
-            EditorGUILayout.BeginHorizontal();
-            GUI.enabled = false;
-            EditorGUILayout.ObjectField("SoftBody", editor.SoftBody, typeof(SoftBody), true);
-            GUI.enabled = true;
-            EditorGUILayout.EndHorizontal();
+{
+    EditorGUILayout.BeginHorizontal();
+    GUI.enabled = false;
+    EditorGUILayout.ObjectField("SoftBody", editor.SoftBody, typeof(SoftBody), true);
+    GUI.enabled = true;
+    EditorGUILayout.EndHorizontal();
 
-            if (EditorApplication.isPlayingOrWillChangePlaymode) return;
+    if (EditorApplication.isPlayingOrWillChangePlaymode) return;
 
-            editor.softBody = editor.GetComponent<SoftBody>();
-            if (editor.softBody != null)
-            {
-                editor.LoadFromTrussAsset();
-                editor.ApplyStretchLimits();
-                editor.ValidateNodeConnectivity();
-                editor.ApplyPinnedNodes();
-                EditorUtility.SetDirty(editor);
-            }
-            else
-            {
-                Debug.LogWarning("No SoftBody component found on this GameObject.", editor);
-            }
-        }
+    editor.softBody = editor.GetComponent<SoftBody>();
+    if (editor.softBody == null)
+    {
+        Debug.LogWarning("No SoftBody component found on this GameObject.", editor);
+        return;
+    }
+
+
+}
         private void DrawTabs()
         {
             string[] tabs = { "Info", "Nodes", "Links", "Debug", "Visual", "Stretch"};
@@ -680,6 +675,10 @@ namespace DynamicEngine
             if (GUILayout.Button("Reload from TrussAsset"))
             {
                 editor.LoadFromTrussAsset();
+                editor.ApplyStretchLimits();
+                editor.ValidateNodeConnectivity();
+                editor.ApplyPinnedNodes();
+                EditorUtility.SetDirty(editor);
             }
             editor.isCreatingNode = false;
             editor.creatingLinkNodeIndex = -1;
@@ -838,7 +837,6 @@ namespace DynamicEngine
 
         private void DrawDebuggingTab()
         {
-            EditorGUILayout.LabelField("Debugging Tools", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(serializedObject.FindProperty("enableDebugLogs"), new GUIContent("Enable Debug Logs", "Log detailed operations like pinning and stretch limit application"));
 
             if (GUILayout.Button("Validate Node Connectivity"))
