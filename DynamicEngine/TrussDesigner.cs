@@ -95,7 +95,6 @@ namespace DynamicEngine
 
             LoadFromTrussAsset();
             ApplyStretchLimits();
-            ValidateNodeConnectivity();
             ApplyPinnedNodes();
         }
 
@@ -108,7 +107,7 @@ namespace DynamicEngine
             if (core != null) core.visualizeForces = visualizeForces;
         }
 
-        private Solver GetSolver()
+        public Solver GetSolver()
         {
             return typeof(SoftBody).GetField("core", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(softBody) as Solver;
         }
@@ -293,7 +292,6 @@ namespace DynamicEngine
             selectedLinkIndices.Clear();
             pinnedNodes.Clear();
             if (enableDebugLogs) Debug.Log($"Loaded {nodes.Count} nodes and {links.Count} links from TrussAsset.", this);
-            ValidateNodeConnectivity();
         }
 
         public void SaveToTrussAsset()
@@ -317,13 +315,18 @@ namespace DynamicEngine
                 )).ToList();
             truss.SetBeams(trussBeams);
             softBody.ApplyTrussAsset(truss);
+            // push node mass into the physics engine
+            var core = GetSolver();
+            if (core != null)
+            {
+                core.materialProps.nodeMass = nodeMass;
+            }
 
 #if UNITY_EDITOR
             EditorUtility.SetDirty(truss);
             EditorUtility.SetDirty(softBody);
 #endif
             if (enableDebugLogs) Debug.Log($"Saved {nodes.Count} nodes and {trussBeams.Count} beams to TrussAsset.", this);
-            ValidateNodeConnectivity();
         }
         #endregion
 
@@ -474,51 +477,6 @@ namespace DynamicEngine
                 }
             }
             ApplyPinnedNodes();
-        }
-        #endregion
-
-        #region Validation
-        public void ValidateNodeConnectivity()
-        {
-            if (nodes.Count == 0 || links.Count == 0)
-            {
-                if (enableDebugLogs) Debug.LogWarning("No nodes or links to validate.", this);
-                return;
-            }
-
-            Dictionary<int, int> nodeConnections = new Dictionary<int, int>();
-            for (int i = 0; i < nodes.Count; i++)
-                nodeConnections[i] = 0;
-
-            foreach (var link in links)
-            {
-                if (link.nodeA >= 0 && link.nodeA < nodes.Count) nodeConnections[link.nodeA]++;
-                if (link.nodeB >= 0 && link.nodeB < nodes.Count) nodeConnections[link.nodeB]++;
-            }
-
-            bool hasIssues = false;
-            foreach (var pair in nodeConnections)
-            {
-                if (pair.Value < 2)
-                {
-                    Debug.LogWarning($"Node {pair.Key} has only {pair.Value} connections. Consider adding more links for stability.", this);
-                    hasIssues = true;
-                }
-                else if (pair.Value > 8)
-                {
-                    Debug.LogWarning($"Node {pair.Key} has {pair.Value} connections. Excessive connections may cause instability.", this);
-                    hasIssues = true;
-                }
-            }
-
-            if (nodeConnections.ContainsKey(6) && nodeConnections.ContainsKey(5))
-            {
-                if (enableDebugLogs)
-                    Debug.Log($"Beam 12 (nodes 6-5): Node 6 has {nodeConnections[6]} connections, Node 5 has {nodeConnections[5]} connections.", this);
-            }
-
-            if (!hasIssues && enableDebugLogs)
-                Debug.Log("Node connectivity validated: All nodes have 2-8 connections.", this);
         }
         #endregion
 
@@ -676,7 +634,6 @@ namespace DynamicEngine
             {
                 editor.LoadFromTrussAsset();
                 editor.ApplyStretchLimits();
-                editor.ValidateNodeConnectivity();
                 editor.ApplyPinnedNodes();
                 EditorUtility.SetDirty(editor);
             }
@@ -686,16 +643,20 @@ namespace DynamicEngine
 
         private void DrawNodesTab()
         {
-            editor.isCreatingNode = EditorGUILayout.Toggle(new GUIContent("Create Node Mode", "Click on a surface to place a new node"), editor.isCreatingNode);
-            if (editor.isCreatingNode)
+            if (GUILayout.Button(editor.isCreatingNode ? "Cancel Create Node" : "Create Node"))
             {
-                EditorGUILayout.LabelField("Click on a surface to place node", new GUIStyle(EditorStyles.label) { normal = { textColor = Color.green } });
-                editor.creatingLinkNodeIndex = -1;
+                editor.isCreatingNode = !editor.isCreatingNode;
+                editor.creatingLinkNodeIndex = -1;   // cancel link creation if any
             }
+           EditorGUI.BeginChangeCheck();
+           EditorGUILayout.LabelField("Node Mass", EditorStyles.boldLabel);
+           editor.nodeMass = EditorGUILayout.FloatField(new GUIContent("Mass", "Mass of each node for physics simulation"), Mathf.Max(0.1f, editor.nodeMass));
 
-            EditorGUILayout.LabelField("Node Mass", EditorStyles.boldLabel);
-            editor.nodeMass = EditorGUILayout.FloatField(new GUIContent("Mass", "Mass of each node for physics simulation"), Mathf.Max(0.1f, editor.nodeMass));
-
+            if (EditorGUI.EndChangeCheck())
+            {
+                var core = editor.GetSolver();
+                if (core != null) core.materialProps.nodeMass = editor.nodeMass;
+            }
             string nodeInfo = editor.selectedNodeIndices.Count switch
             {
                 0 => "No Nodes Selected",
@@ -831,6 +792,18 @@ namespace DynamicEngine
                 else if (!uniform)
                 {
                     EditorGUILayout.HelpBox("Multiple links with different properties selected. Values shown are for the first selected link.", MessageType.Info);
+                }
+
+                var core = editor.GetSolver();
+                if (core != null)
+                {
+                    foreach (int idx in editor.selectedLinkIndices)
+                    {
+                        var beam = core.beams[idx];
+                        beam.compliance = 1f / editor.links[idx].springForce; // invert because Solver expects “compliance”
+                        beam.damping = editor.links[idx].damping;
+                        core.beams[idx] = beam;
+                    }
                 }
             }
         }
