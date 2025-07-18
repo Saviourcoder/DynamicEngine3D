@@ -16,23 +16,25 @@ namespace DynamicEngine
 {
     public class Solver
     {
+        private readonly Transform owner;
         public readonly NodeManager nodeManager;
         public List<Beam> beams;
         public readonly MeshDeformer meshDeformer;
-        private MaterialProperties materialProps;
+        public MaterialProperties materialProps;
         public readonly List<Vector3> collisionPoints;
         private float maxStretchFactor = 1.05f;
         private float minStretchFactor = 0.95f;
         public bool visualizeForces = false;
         private TrussAsset trussAsset; // Reference to TrussAsset for face data
 
-        public Solver(float nodeRadius,float influenceRadius, MaterialProperties materialProps, Mesh mesh, Vector3[] originalVertices)
+        public Solver(float nodeRadius, float influenceRadius, MaterialProperties materialProps, Mesh mesh, Vector3[] originalVertices, Transform owner)
         {
             this.nodeManager = new NodeManager(nodeRadius);
             this.beams = new List<Beam>();
             this.meshDeformer = new MeshDeformer(mesh, originalVertices, influenceRadius);
             this.materialProps = materialProps ?? MaterialProperties.GetDefault(MaterialType.Custom);
             this.collisionPoints = new List<Vector3>();
+            this.owner = owner;
         }
         public void GenerateNodesAndBeams(Vector3[] positions, float connectionDistance = -1f, Beam[] beamsArray = null, Transform parent = null)
         {
@@ -170,6 +172,21 @@ namespace DynamicEngine
 
         public void Solve()
         {
+            // Keep settings in sync with the NodeLinkEditor
+            var editor = owner?.GetComponent<NodeLinkEditor>();
+            if (editor != null)
+            {
+                materialProps.nodeMass = editor.nodeMass;
+                maxStretchFactor = editor.maxStretchFactor;
+                minStretchFactor = editor.minStretchFactor;
+
+                // Live-link properties
+                for (int i = 0; i < beams.Count && i < editor.links.Count; i++)
+                {
+                    beams[i].compliance = 1f / editor.links[i].springForce;
+                    beams[i].damping = editor.links[i].damping;
+                }
+            }
             if (nodeManager == null || beams == null || materialProps == null || nodeManager.Nodes == null)
             {
                 Debug.LogWarning("Cannot simulate plastic deformation: Invalid state.");
