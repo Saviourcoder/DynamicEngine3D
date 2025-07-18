@@ -104,13 +104,13 @@ namespace DynamicEngine
             if (Application.isPlaying)
             return;
             if (softBody == null) return;
-            var core = GetSoftBodyCore();
+            var core = GetSolver();
             if (core != null) core.visualizeForces = visualizeForces;
         }
 
-        private SoftBodyCore GetSoftBodyCore()
+        private Solver GetSolver()
         {
-            return typeof(SoftBody).GetField("core", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(softBody) as SoftBodyCore;
+            return typeof(SoftBody).GetField("core", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(softBody) as Solver;
         }
 
         #region Node and Link Management
@@ -338,13 +338,13 @@ namespace DynamicEngine
 
             maxStretchFactor = Mathf.Clamp(maxStretchFactor, 1.0f, 1.5f);
             minStretchFactor = Mathf.Clamp(minStretchFactor, 0.5f, 1.0f);
-            var core = GetSoftBodyCore();
+            var core = GetSolver();
             if (core == null) return;
 
             try
             {
-                var maxField = typeof(SoftBodyCore).GetField("maxStretchFactor", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                var minField = typeof(SoftBodyCore).GetField("minStretchFactor", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                var maxField = typeof(Solver).GetField("maxStretchFactor", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                var minField = typeof(Solver).GetField("minStretchFactor", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                 if (maxField != null && minField != null)
                 {
                     maxField.SetValue(core, maxStretchFactor);
@@ -371,13 +371,13 @@ namespace DynamicEngine
                 return;
             }
 
-            var core = GetSoftBodyCore();
+            var core = GetSolver();
             if (core == null) return;
 
             try
             {
-                var pinMethod = typeof(SoftBodyCore).GetMethod("PinNode", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                var unpinMethod = typeof(SoftBodyCore).GetMethod("UnpinNode", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                var pinMethod = typeof(Solver).GetMethod("PinNode", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                var unpinMethod = typeof(Solver).GetMethod("UnpinNode", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
                 if (pinMethod != null && unpinMethod != null)
                 {
                     for (int i = 0; i < nodes.Count; i++)
@@ -523,7 +523,7 @@ namespace DynamicEngine
         #endregion
 
         #region SoftBody Synchronization
-        public void SyncToSoftBodyCore(SoftBodyCore core, Transform transform)
+        public void SyncToSolver(Solver core, Transform transform)
         {
             if (core == null)
             {
@@ -542,8 +542,8 @@ namespace DynamicEngine
 
             try
             {
-                var maxField = typeof(SoftBodyCore).GetField("maxStretchFactor", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                var minField = typeof(SoftBodyCore).GetField("minStretchFactor", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                var maxField = typeof(Solver).GetField("maxStretchFactor", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                var minField = typeof(Solver).GetField("minStretchFactor", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                 if (maxField != null && minField != null)
                 {
                     maxField.SetValue(core, Mathf.Max(1.0f, maxStretchFactor));
