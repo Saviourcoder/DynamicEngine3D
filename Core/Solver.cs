@@ -14,7 +14,7 @@ using UnityEditor;
 
 namespace DynamicEngine
 {
-    public class SoftBodyCore
+    public class Solver
     {
         public readonly NodeManager nodeManager;
         public List<Beam> beams;
@@ -26,12 +26,7 @@ namespace DynamicEngine
         public bool visualizeForces = false;
         private TrussAsset trussAsset; // Reference to TrussAsset for face data
 
-        public SoftBodyCore(
-            float nodeRadius,
-            float influenceRadius,
-            MaterialProperties materialProps,
-            Mesh mesh,
-            Vector3[] originalVertices)
+        public Solver(float nodeRadius,float influenceRadius, MaterialProperties materialProps, Mesh mesh, Vector3[] originalVertices)
         {
             this.nodeManager = new NodeManager(nodeRadius);
             this.beams = new List<Beam>();
@@ -39,15 +34,7 @@ namespace DynamicEngine
             this.materialProps = materialProps ?? MaterialProperties.GetDefault(MaterialType.Custom);
             this.collisionPoints = new List<Vector3>();
         }
-
-        // ------------------------------------------------------------------
-        //  SINGLE METHOD  – replaces the two old overloads
-        // ------------------------------------------------------------------
-        public void GenerateNodesAndBeams(
-            Vector3[] positions,
-            float connectionDistance = -1f,
-            Beam[] beamsArray = null,
-            Transform parent = null)
+        public void GenerateNodesAndBeams(Vector3[] positions, float connectionDistance = -1f, Beam[] beamsArray = null, Transform parent = null)
         {
             if (positions == null || positions.Length == 0 ||
                 (connectionDistance <= 0f && beamsArray == null))
@@ -61,23 +48,26 @@ namespace DynamicEngine
                 Debug.LogWarning("GenerateNodesAndBeams: parent Transform is null.");
                 return;
             }
-            // 2) Clear lists
+
+            // 1) Clear old data
             nodeManager.Clear();
             beams.Clear();
+            DestroyOldNodes(parent);
 
-            // 3) Create hidden nodes
+            // 2) Build the *mesh-local* node positions
             for (int i = 0; i < positions.Length; i++)
             {
                 GameObject nodeObj = new GameObject($"Node_{i}");
                 nodeObj.transform.parent = parent;
-                nodeObj.transform.localPosition = positions[i];
+                nodeObj.transform.position = parent.TransformPoint(positions[i]); // world pos for GO
                 nodeObj.hideFlags = HideFlags.HideAndDontSave;
 
-                nodeManager.AddNode(nodeObj.transform, positions[i]);
+                nodeManager.AddNode(nodeObj.transform, nodeObj.transform.position);
             }
 
-            // 4) Build beams
-            if (beamsArray != null)                    // explicit list
+            /* 3) Build beams – unchanged except we now use the local positions
+                  to compute restLength (distance in *local* space)                */
+            if (beamsArray != null)
             {
                 foreach (var b in beamsArray)
                 {
@@ -90,17 +80,13 @@ namespace DynamicEngine
                     }
                 }
             }
-            else                                       // auto-links
+            else
             {
-                for (int i = 0; i < nodeManager.Nodes.Count; i++)
+                for (int i = 0; i < positions.Length; i++)
                 {
-                    for (int j = i + 1; j < nodeManager.Nodes.Count; j++)
+                    for (int j = i + 1; j < positions.Length; j++)
                     {
-                        if (nodeManager.Nodes[i] == null || nodeManager.Nodes[j] == null) continue;
-
-                        Vector3 posA = nodeManager.Nodes[i].localPosition;
-                        Vector3 posB = nodeManager.Nodes[j].localPosition;
-                        float distance = Vector3.Distance(posA, posB);
+                        float distance = Vector3.Distance(positions[i], positions[j]);
                         if (distance <= connectionDistance && distance > 0.01f)
                         {
                             beams.Add(new Beam(i, j,
@@ -112,9 +98,9 @@ namespace DynamicEngine
                 }
             }
 
+            // 4) Tell the deformer how to skin
             meshDeformer.MapVerticesToNodes(parent, nodeManager.Nodes, nodeManager.InitialPositions);
         }
-
         // ------------------------------------------------------------------
         //  REST OF FILE – unchanged
         // ------------------------------------------------------------------
@@ -614,6 +600,23 @@ namespace DynamicEngine
         public void SetMaterialProperties(MaterialProperties props)
         {
             this.materialProps = props ?? MaterialProperties.GetDefault(MaterialType.Custom);
+        }
+
+        private void DestroyOldNodes(Transform parent)
+        {
+            var toKill = new List<GameObject>();
+            foreach (Transform child in parent)
+            {
+                if (child.name.StartsWith("Node_"))
+                    toKill.Add(child.gameObject);
+            }
+            foreach (var go in toKill)
+            {
+                if (Application.isEditor && !Application.isPlaying)
+                    Object.DestroyImmediate(go);
+                else
+                    Object.Destroy(go);
+            }
         }
         private static void DelayedDestroyNodes(Transform parent)
         {
