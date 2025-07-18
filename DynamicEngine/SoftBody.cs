@@ -40,7 +40,7 @@ namespace DynamicEngine
 
         private MeshFilter meshFilter;
         private Mesh mesh;
-        private SoftBodyCore core;
+        private Solver core;
         private Camera mainCamera;
         private bool isDragging = false;
         private Plane dragPlane;
@@ -76,7 +76,7 @@ namespace DynamicEngine
             if (!SetupMesh()) return false;
 
             // SoftBody itself no longer owns material data – pass a default
-            core = new SoftBodyCore(nodeRadius, influenceRadius, MaterialProperties.GetDefault(MaterialType.Rubber), mesh, mesh.vertices);
+            core = new Solver(nodeRadius, influenceRadius, MaterialProperties.GetDefault(MaterialType.Rubber), mesh, mesh.vertices);
             if (trussAsset != null) ApplyTruss();
             else core.GenerateCubeTest(transform);
 
@@ -120,7 +120,18 @@ namespace DynamicEngine
             EditorUtility.SetDirty(this);
 #endif
         }
-        void Update() => HandleMouseInteraction();
+        void Update()
+{
+    HandleMouseInteraction();
+
+    // Re-map when transform changed
+    if (transform.hasChanged && core != null)
+    {
+        core.meshDeformer.MapVerticesToNodes(transform, core.nodeManager.Nodes,
+                                             core.nodeManager.InitialPositions);
+        transform.hasChanged = false;
+    }
+}
         void FixedUpdate()
         {
             if (core != null) { core.Solve(); core.DeformMesh(transform); }
