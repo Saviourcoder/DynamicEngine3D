@@ -1,5 +1,6 @@
 # DynamicEngine3D
-Open-source Soft-Body Physics Engine for Unity3D
+Open-source XPBD Physics Engine for Unity3D
+(Soft-Body)
 ![engine Icon](https://github.com/user-attachments/assets/3f28f46e-5c8f-4fb0-8106-aca79122ad5e)
 Uses XPBD for Simulating Soft-Bodies, More Info on that Here: https://www.youtube.com/watch?v=jrociOAYqxA&t=8s
 
