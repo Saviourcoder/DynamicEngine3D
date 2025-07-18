@@ -76,7 +76,7 @@ namespace DynamicEngine
             if (!SetupMesh()) return false;
 
             // SoftBody itself no longer owns material data – pass a default
-            core = new Solver(nodeRadius, influenceRadius, MaterialProperties.GetDefault(MaterialType.Rubber), mesh, mesh.vertices);
+            core = new Solver(nodeRadius, influenceRadius, MaterialProperties.GetDefault(MaterialType.Rubber), mesh, mesh.vertices, transform);
             if (trussAsset != null) ApplyTruss();
             else core.GenerateCubeTest(transform);
 
