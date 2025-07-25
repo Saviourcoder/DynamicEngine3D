@@ -10,7 +10,10 @@
 using System.Collections.Generic;
 using UnityEngine;
 using DynamicEngine;
+
+#if UNITY_EDITOR
 using UnityEditor;
+#endif
 
 namespace DynamicEngine
 {
@@ -20,19 +23,35 @@ namespace DynamicEngine
         public readonly NodeManager nodeManager;
         public List<Beam> beams;
         public readonly MeshDeformer meshDeformer;
-        public MaterialProperties materialProps;
+        public MaterialProps materialProps;
         public readonly List<Vector3> collisionPoints;
         private float maxStretchFactor = 1.05f;
         private float minStretchFactor = 0.95f;
         public bool visualizeForces = false;
         private TrussAsset trussAsset; // Reference to TrussAsset for face data
+        
+        // Runtime Visualization
+        public bool showNodesAndLinks = false;
+        public bool showNodes = true;
+        public bool showLinks = true;
+        public bool showNodeIndices = false;
+        public bool showLinkForces = false;
+        public bool showInfluenceRadius = false;
+        public float nodeDisplaySize = 0.1f;
+        public Color nodeColor = Color.green;
+        public Color pinnedNodeColor = Color.red;
+        public Color linkColor = Color.blue;
+        public Color stretchedLinkColor = Color.red;
+        public Color compressedLinkColor = Color.yellow;
+        public Color influenceRadiusColor = new Color(1f, 1f, 0f, 0.3f);
+        public float forceVisualizationScale = 0.01f;
 
-        public Solver(float nodeRadius, float influenceRadius, MaterialProperties materialProps, Mesh mesh, Vector3[] originalVertices, Transform owner)
+        public Solver(float nodeRadius, float influenceRadius, MaterialProps materialProps, Mesh mesh, Vector3[] originalVertices, Transform owner)
         {
             this.nodeManager = new NodeManager(nodeRadius);
             this.beams = new List<Beam>();
             this.meshDeformer = new MeshDeformer(mesh, originalVertices, influenceRadius);
-            this.materialProps = materialProps ?? MaterialProperties.GetDefault(MaterialType.Custom);
+            this.materialProps = materialProps ?? MaterialProps.GetDefault(MaterialType.Custom);
             this.collisionPoints = new List<Vector3>();
             this.owner = owner;
         }
@@ -64,7 +83,8 @@ namespace DynamicEngine
                 nodeObj.transform.position = parent.TransformPoint(positions[i]); // world pos for GO
                 nodeObj.hideFlags = HideFlags.HideAndDontSave;
 
-                nodeManager.AddNode(nodeObj.transform, nodeObj.transform.position);
+                // FIXED: Store local position instead of world position for mesh mapping
+                nodeManager.AddNode(nodeObj.transform, positions[i]);
             }
 
             /* 3) Build beams – unchanged except we now use the local positions
@@ -92,8 +112,8 @@ namespace DynamicEngine
                         if (distance <= connectionDistance && distance > 0.01f)
                         {
                             beams.Add(new Beam(i, j,
-                                               materialProps.defaultCompliance,
-                                               materialProps.defaultDamping,
+                                               materialProps.Springforce,
+                                               materialProps.Damping,
                                                distance));
                         }
                     }
@@ -207,7 +227,7 @@ namespace DynamicEngine
                 nodeManager.PreviousPositions.Clear();
                 for (int i = 0; i < nodeManager.Nodes.Count; i++)
                 {
-                    nodeManager.PreviousPositions.Add(nodeManager.Nodes[i] != null ? nodeManager.Nodes[i].position : Vector3.zero);
+                    nodeManager.PreviousPositions.Add(nodeManager.Nodes[i] != null ? nodeManager.Nodes[i].localPosition : Vector3.zero);
                 }
             }
 
@@ -216,7 +236,7 @@ namespace DynamicEngine
                 nodeManager.PredictedPositions.Clear();
                 for (int i = 0; i < nodeManager.Nodes.Count; i++)
                 {
-                    nodeManager.PredictedPositions.Add(nodeManager.Nodes[i] != null ? nodeManager.Nodes[i].position : Vector3.zero);
+                    nodeManager.PredictedPositions.Add(nodeManager.Nodes[i] != null ? nodeManager.Nodes[i].localPosition : Vector3.zero);
                 }
             }
 
@@ -225,10 +245,13 @@ namespace DynamicEngine
             {
                 if (nodeManager.Nodes[i] == null || nodeManager.IsPinned[i]) continue;
 
-                Vector3 currentPos = nodeManager.Nodes[i].position;
+                Vector3 currentPos = nodeManager.Nodes[i].localPosition; // Use local position
                 Vector3 prevPos = nodeManager.PreviousPositions[i];
                 Vector3 velocity = (currentPos - prevPos) / dt;
-                Vector3 acceleration = Vector3.down * (SceneSettings.Instance != null ? SceneSettings.Instance.Gravity : 9.81f);
+                
+                // Apply gravity in local space (transform gravity to local space)
+                Vector3 localGravity = owner.InverseTransformDirection(Vector3.down * (SceneSettings.Instance != null ? SceneSettings.Instance.Gravity : 9.81f));
+                Vector3 acceleration = localGravity;
                 Vector3 newPosition = currentPos + velocity * dt + acceleration * dtSquared;
 
                 if (float.IsNaN(newPosition.x) || float.IsNaN(newPosition.y) || float.IsNaN(newPosition.z))
@@ -245,7 +268,7 @@ namespace DynamicEngine
             {
                 if (nodeManager.Nodes[i] == null || nodeManager.IsPinned[i]) continue;
 
-                Vector3 currentPos = nodeManager.Nodes[i].position;
+                Vector3 currentPos = nodeManager.Nodes[i].localPosition; // Use local position
                 Vector3 predictedPos = nodeManager.PredictedPositions[i];
                 Vector3 motion = predictedPos - currentPos;
                 float motionDistance = motion.magnitude;
@@ -258,9 +281,10 @@ namespace DynamicEngine
                 {
                     tempPos += subMotion;
 
-                    // Environment collisions
+                    // Environment collisions - convert to world space for collision detection
+                    Vector3 worldTempPos = owner.TransformPoint(tempPos);
                     Collider nodeCollider = nodeManager.Colliders[i];
-                    Collider[] colliders = Physics.OverlapSphere(tempPos, nodeManager.NodeRadius);
+                    Collider[] colliders = Physics.OverlapSphere(worldTempPos, nodeManager.NodeRadius);
                     foreach (var collider in colliders)
                     {
                         if (collider == nodeCollider || collider.transform == nodeManager.Nodes[i]) continue;
@@ -270,29 +294,35 @@ namespace DynamicEngine
 
                         Vector3 direction;
                         float distance;
-                        if (Physics.ComputePenetration(nodeCollider, tempPos, Quaternion.identity,
+                        if (Physics.ComputePenetration(nodeCollider, worldTempPos, owner.rotation,
                                                       collider, collider.transform.position, collider.transform.rotation,
                                                       out direction, out distance))
                         {
-                            Vector3 correction = direction * distance;
+                            // Convert correction back to local space
+                            Vector3 worldCorrection = direction * distance;
+                            Vector3 localDirection = owner.InverseTransformDirection(direction);
+                            Vector3 localCorrection = localDirection * distance;
+                            
                             float w = 1f / materialProps.nodeMass;
-                            float compliance = materialProps.defaultCompliance / dtSquared;
+                            float compliance = materialProps.Springforce / dtSquared;
                             float lambda = -distance / (w + compliance);
-                            tempPos += correction * lambda;
+                            tempPos += localCorrection * lambda;
 
                             Vector3 velocity = subMotion / subDt;
                             float impactMagnitude = velocity.magnitude * materialProps.nodeMass / subDt;
                             if (impactMagnitude > 200)
                             {
-                                Vector3 deformationOffset = -direction * materialProps.deformationScale;
+                                Vector3 deformationOffset = -localDirection * materialProps.deformationScale;
                                 deformationOffset = Vector3.ClampMagnitude(deformationOffset, materialProps.maxDeformation);
                                 tempPos += deformationOffset;
                                 UpdateBeamRestLengths(i, tempPos);
                             }
 
-                            collisionPoints.Add(tempPos - correction);
-                            Debug.DrawLine(tempPos - correction, tempPos, Color.green, 0.1f);
-                            Debug.DrawRay(tempPos, direction * 0.2f, Color.yellow, 0.1f);
+                            // Convert collision point to world space for debug drawing
+                            Vector3 worldCollisionPoint = owner.TransformPoint(tempPos - localCorrection);
+                            collisionPoints.Add(worldCollisionPoint);
+                            Debug.DrawLine(worldCollisionPoint, owner.TransformPoint(tempPos), Color.green, 0.1f);
+                            Debug.DrawRay(owner.TransformPoint(tempPos), direction * 0.2f, Color.yellow, 0.1f);
                         }
                     }
 
@@ -307,35 +337,39 @@ namespace DynamicEngine
 
                             if (i == face.nodeA || i == face.nodeB || i == face.nodeC) continue;
 
-                            Vector3 posA = nodeManager.Nodes[face.nodeA].position;
-                            Vector3 posB = nodeManager.Nodes[face.nodeB].position;
-                            Vector3 posC = nodeManager.Nodes[face.nodeC].position;
+                            // Convert local positions to world space for face collision calculations
+                            Vector3 posA = owner.TransformPoint(nodeManager.InitialPositions[face.nodeA]);
+                            Vector3 posB = owner.TransformPoint(nodeManager.InitialPositions[face.nodeB]);
+                            Vector3 posC = owner.TransformPoint(nodeManager.InitialPositions[face.nodeC]);
+                            Vector3 worldTempPos2 = owner.TransformPoint(tempPos);
 
                             Vector3 normal = Vector3.Cross(posB - posA, posC - posA).normalized;
-                            float distanceToPlane = Vector3.Dot(tempPos - posA, normal);
+                            float distanceToPlane = Vector3.Dot(worldTempPos2 - posA, normal);
 
                             if (Mathf.Abs(distanceToPlane) < nodeManager.NodeRadius)
                             {
-                                Vector3 projectedPoint = tempPos - distanceToPlane * normal;
+                                Vector3 projectedPoint = worldTempPos2 - distanceToPlane * normal;
 
                                 if (IsPointInTriangle(projectedPoint, posA, posB, posC))
                                 {
                                     float w = 1f / materialProps.nodeMass;
-                                    float compliance = materialProps.defaultCompliance / dtSquared;
+                                    float compliance = materialProps.Springforce / dtSquared;
                                     float lambda = -distanceToPlane / (w + compliance);
-                                    Vector3 correction = normal * lambda;
+                                    Vector3 worldCorrection = normal * lambda;
+                                    Vector3 localCorrection = owner.InverseTransformVector(worldCorrection);
 
-                                    if (float.IsNaN(correction.x) || float.IsNaN(correction.y) || float.IsNaN(correction.z))
+                                    if (float.IsNaN(localCorrection.x) || float.IsNaN(localCorrection.y) || float.IsNaN(localCorrection.z))
                                     {
-                                        correction = Vector3.zero;
+                                        localCorrection = Vector3.zero;
                                         Debug.LogWarning($"NaN correction in face-node collision for node {i}, skipping");
                                     }
                                     else
                                     {
-                                        tempPos += correction;
-                                        collisionPoints.Add(tempPos - correction);
-                                        Debug.DrawLine(tempPos - correction, tempPos, Color.cyan, 0.1f);
-                                        Debug.DrawRay(tempPos, normal * 0.2f, Color.magenta, 0.1f);
+                                        tempPos += localCorrection;
+                                        Vector3 worldCollisionPoint = owner.TransformPoint(tempPos - localCorrection);
+                                        collisionPoints.Add(worldCollisionPoint);
+                                        Debug.DrawLine(worldCollisionPoint, owner.TransformPoint(tempPos), Color.cyan, 0.1f);
+                                        Debug.DrawRay(owner.TransformPoint(tempPos), normal * 0.2f, Color.magenta, 0.1f);
                                     }
                                 }
                             }
@@ -344,7 +378,9 @@ namespace DynamicEngine
                 }
                 nodeManager.PredictedPositions[i] = tempPos;
 
-                Collider[] overlaps = Physics.OverlapSphere(nodeManager.PredictedPositions[i], nodeManager.NodeRadius);
+                // Node-to-node collisions - convert to world space for collision detection
+                Vector3 worldPredictedPos = owner.TransformPoint(nodeManager.PredictedPositions[i]);
+                Collider[] overlaps = Physics.OverlapSphere(worldPredictedPos, nodeManager.NodeRadius);
                 foreach (var collider in overlaps)
                 {
                     if (collider.transform == nodeManager.Nodes[i]) continue;
@@ -368,13 +404,16 @@ namespace DynamicEngine
                         float wB = 1f / materialProps.nodeMass;
                         float wSum = wA + wB;
 
-                        float compliance = materialProps.defaultCompliance / dtSquared;
+                        float compliance = materialProps.Springforce / dtSquared;
                         float lambda = -constraint / (wSum + compliance);
 
                         Vector3 correction = gradient * lambda;
                         nodeManager.PredictedPositions[i] -= wA * correction;
                         nodeManager.PredictedPositions[j] += wB * correction;
-                        collisionPoints.Add((posA + posB) * 0.5f);
+                        
+                        // Convert collision point to world space for debugging
+                        Vector3 worldCollisionPoint = owner.TransformPoint((posA + posB) * 0.5f);
+                        collisionPoints.Add(worldCollisionPoint);
                     }
                 }
             }
@@ -457,12 +496,14 @@ namespace DynamicEngine
             {
                 if (nodeManager.Nodes[i] == null || nodeManager.IsPinned[i]) continue;
 
-                Vector3 currentPos = nodeManager.Nodes[i].position;
+                Vector3 currentPos = nodeManager.Nodes[i].localPosition; // Use local position
                 Vector3 predictedPos = nodeManager.PredictedPositions[i];
                 Vector3 motion = predictedPos - currentPos;
 
+                // Convert to world space for collision detection
+                Vector3 worldPredictedPos = owner.TransformPoint(predictedPos);
                 Collider nodeCollider = nodeManager.Colliders[i];
-                Collider[] colliders = Physics.OverlapSphere(predictedPos, nodeManager.NodeRadius);
+                Collider[] colliders = Physics.OverlapSphere(worldPredictedPos, nodeManager.NodeRadius);
                 bool inCollision = false;
                 Vector3 normal = Vector3.zero;
                 foreach (var collider in colliders)
@@ -473,24 +514,29 @@ namespace DynamicEngine
 
                     Vector3 direction;
                     float distance;
-                    if (Physics.ComputePenetration(nodeCollider, predictedPos, Quaternion.identity,
+                    if (Physics.ComputePenetration(nodeCollider, worldPredictedPos, owner.rotation,
                                                   collider, collider.transform.position, collider.transform.rotation,
                                                   out direction, out distance))
                     {
                         inCollision = true;
                         normal = direction;
-                        predictedPos += direction * distance;
-                        collisionPoints.Add(predictedPos);
+                        // Convert correction back to local space
+                        Vector3 localDirection = owner.InverseTransformDirection(direction);
+                        predictedPos += localDirection * distance;
+                        
+                        Vector3 worldCollisionPoint = owner.TransformPoint(predictedPos);
+                        collisionPoints.Add(worldCollisionPoint);
                         break;
                     }
                 }
 
-                nodeManager.Nodes[i].position = predictedPos;
+                nodeManager.Nodes[i].localPosition = predictedPos; // Set local position
 
                 if (inCollision)
                 {
                     Vector3 velocity = motion / dt;
-                    Vector3 velocityNormal = Vector3.Project(velocity, normal);
+                    Vector3 localNormal = owner.InverseTransformDirection(normal);
+                    Vector3 velocityNormal = Vector3.Project(velocity, localNormal);
                     Vector3 velocityTangent = velocity - velocityNormal;
                     Vector3 newVelocity = velocityTangent * (1f - friction) - velocityNormal * restitution;
 
@@ -498,13 +544,16 @@ namespace DynamicEngine
                     {
                         newVelocity = Vector3.zero;
                     }
-                    nodeManager.PreviousPositions[i] = nodeManager.Nodes[i].position - newVelocity * dt;
+                    nodeManager.PreviousPositions[i] = nodeManager.Nodes[i].localPosition - newVelocity * dt;
                 }
                 else
                 {
                     nodeManager.PreviousPositions[i] = currentPos;
                 }
             }
+            
+            // Draw visualization if enabled
+            DrawNodesAndLinks();
         }
 
         private bool IsPointInTriangle(Vector3 point, Vector3 a, Vector3 b, Vector3 c)
@@ -526,7 +575,7 @@ namespace DynamicEngine
             return u >= 0 && v >= 0 && u + v < 1;
         }
 
-        private void UpdateBeamRestLengths(int nodeIndex, Vector3 newPosition)
+        private void UpdateBeamRestLengths(int nodeIndex, Vector3 newLocalPosition)
         {
             for (int i = 0; i < beams.Count; i++)
             {
@@ -539,8 +588,8 @@ namespace DynamicEngine
                     continue;
                 }
 
-                Vector3 posA = nodeManager.Nodes[beam.nodeA].position;
-                Vector3 posB = nodeManager.Nodes[beam.nodeB].position;
+                Vector3 posA = nodeManager.Nodes[beam.nodeA].localPosition; // Use local positions
+                Vector3 posB = nodeManager.Nodes[beam.nodeB].localPosition;
                 float newLength = Vector3.Distance(posA, posB);
                 float strain = Mathf.Abs(newLength - beam.restLength) / beam.restLength;
 
@@ -557,6 +606,8 @@ namespace DynamicEngine
         public void DeformMesh(Transform transform)
         {
             if (transform == null) return;
+            
+            // Simply deform the mesh without any transform modifications
             meshDeformer.Deform(transform, nodeManager.Nodes, nodeManager.InitialPositions);
         }
 
@@ -565,20 +616,9 @@ namespace DynamicEngine
             if (nodeIndex >= 0 && nodeIndex < nodeManager.Nodes.Count && nodeManager.Nodes[nodeIndex] != null && !nodeManager.IsPinned[nodeIndex])
             {
                 Vector3 acceleration = force / materialProps.nodeMass;
-                nodeManager.PreviousPositions[nodeIndex] = nodeManager.Nodes[nodeIndex].position - acceleration * Time.fixedDeltaTime * Time.fixedDeltaTime;
+                nodeManager.PreviousPositions[nodeIndex] = nodeManager.Nodes[nodeIndex].localPosition - acceleration * Time.fixedDeltaTime * Time.fixedDeltaTime;
             }
         }
-
-        public void PinNode(int nodeIndex)
-        {
-            nodeManager.PinNode(nodeIndex);
-        }
-
-        public void UnpinNode(int nodeIndex)
-        {
-            nodeManager.UnpinNode(nodeIndex);
-        }
-
         public int FindClosestNodeToRay(Ray ray, float maxDistance)
         {
             int closestNode = -1;
@@ -587,7 +627,8 @@ namespace DynamicEngine
             for (int i = 0; i < nodeManager.Nodes.Count; i++)
             {
                 if (nodeManager.Nodes[i] == null) continue;
-                Vector3 nodePos = nodeManager.Nodes[i].position;
+                // Convert local position to world position for ray casting
+                Vector3 nodePos = owner.TransformPoint(nodeManager.Nodes[i].localPosition);
                 float distance = Vector3.Cross(ray.direction, nodePos - ray.origin).magnitude;
                 if (distance < nodeManager.NodeRadius && distance < minDistance)
                 {
@@ -607,16 +648,17 @@ namespace DynamicEngine
         {
             if (nodeIndex >= 0 && nodeIndex < nodeManager.Nodes.Count && nodeManager.Nodes[nodeIndex] != null && !nodeManager.IsPinned[nodeIndex])
             {
-                Vector3 currentPos = nodeManager.Nodes[nodeIndex].position;
-                Vector3 delta = targetPosition - currentPos;
+                Vector3 currentPos = nodeManager.Nodes[nodeIndex].localPosition; // Use local position
+                Vector3 targetLocalPos = owner.InverseTransformPoint(targetPosition); // Convert target to local space
+                Vector3 delta = targetLocalPos - currentPos;
                 Vector3 impulse = delta * strength * materialProps.nodeMass / Time.fixedDeltaTime;
                 ApplyForceToNode(nodeIndex, impulse);
             }
         }
 
-        public void SetMaterialProperties(MaterialProperties props)
+        public void SetMaterialProperties(MaterialProps props)
         {
-            this.materialProps = props ?? MaterialProperties.GetDefault(MaterialType.Custom);
+            this.materialProps = props ?? MaterialProps.GetDefault(MaterialType.Custom);
         }
 
         private void DestroyOldNodes(Transform parent)
@@ -651,6 +693,207 @@ namespace DynamicEngine
                         Undo.DestroyObjectImmediate(child.gameObject);
                 }
             };
+        }
+
+        internal void GenerateNodesAndBeams(Vector3[] vector3s, Beam[] beams, Transform transform)
+        {
+            throw new System.NotImplementedException();
+        }
+
+        // Runtime Visualization Methods
+        public void DrawNodesAndLinks()
+        {
+            if (!showNodesAndLinks) return;
+
+            if (showNodes)
+                DrawNodes();
+            
+            if (showLinks)
+                DrawLinks();
+                
+            if (showInfluenceRadius)
+                DrawInfluenceRadius();
+        }
+
+        private void DrawNodes()
+        {
+            if (nodeManager?.Nodes == null) return;
+
+            for (int i = 0; i < nodeManager.Nodes.Count; i++)
+            {
+                if (nodeManager.Nodes[i] == null) continue;
+
+                Vector3 position = nodeManager.Nodes[i].localPosition; // Use local position for calculations
+                bool isPinned = i < nodeManager.IsPinned.Count && nodeManager.IsPinned[i];
+                Color color = isPinned ? pinnedNodeColor : nodeColor;
+
+                // Convert to world position for visualization
+                Vector3 worldPosition = owner.TransformPoint(position);
+                
+                // Draw node as a wireframe sphere
+                DrawWireSphere(worldPosition, nodeDisplaySize, color);
+
+                // Draw node index if enabled
+                if (showNodeIndices)
+                {
+                    DrawLabel(worldPosition + Vector3.up * (nodeDisplaySize + 0.1f), i.ToString(), color);
+                }
+            }
+        }
+
+        private void DrawLinks()
+        {
+            if (beams == null || nodeManager?.Nodes == null) return;
+
+            for (int i = 0; i < beams.Count; i++)
+            {
+                Beam beam = beams[i];
+                
+                if (beam.nodeA >= nodeManager.Nodes.Count || beam.nodeB >= nodeManager.Nodes.Count ||
+                    nodeManager.Nodes[beam.nodeA] == null || nodeManager.Nodes[beam.nodeB] == null)
+                    continue;
+
+                Vector3 posA = nodeManager.Nodes[beam.nodeA].localPosition; // Use local positions
+                Vector3 posB = nodeManager.Nodes[beam.nodeB].localPosition;
+                
+                // Convert to world positions for visualization
+                Vector3 worldPosA = owner.TransformPoint(posA);
+                Vector3 worldPosB = owner.TransformPoint(posB);
+                
+                float currentLength = Vector3.Distance(posA, posB); // Calculate in local space
+                
+                // Determine link color based on stretch/compression
+                Color color = linkColor;
+                if (currentLength > beam.restLength * 1.01f)
+                    color = stretchedLinkColor; // Stretched
+                else if (currentLength < beam.restLength * 0.99f)
+                    color = compressedLinkColor; // Compressed
+
+                // Draw the link in world space
+                Debug.DrawLine(worldPosA, worldPosB, color, Time.fixedDeltaTime);
+
+                // Draw force visualization if enabled
+                if (showLinkForces && beam.lagrangeMultiplier != 0)
+                {
+                    Vector3 midPoint = (worldPosA + worldPosB) * 0.5f;
+                    Vector3 direction = (worldPosB - worldPosA).normalized;
+                    float forceMagnitude = beam.lagrangeMultiplier * forceVisualizationScale;
+                    
+                    if (forceMagnitude > 0)
+                    {
+                        // Tension (pulling apart)
+                        Debug.DrawRay(midPoint, direction * forceMagnitude, Color.red, Time.fixedDeltaTime);
+                        Debug.DrawRay(midPoint, -direction * forceMagnitude, Color.red, Time.fixedDeltaTime);
+                    }
+                    else
+                    {
+                        // Compression (pushing together)
+                        Debug.DrawRay(midPoint, direction * Mathf.Abs(forceMagnitude), Color.blue, Time.fixedDeltaTime);
+                        Debug.DrawRay(midPoint, -direction * Mathf.Abs(forceMagnitude), Color.blue, Time.fixedDeltaTime);
+                    }
+                }
+            }
+        }
+
+        private void DrawWireSphere(Vector3 center, float radius, Color color)
+        {
+            Color oldColor = Gizmos.color;
+            Gizmos.color = color;
+            
+            // Draw three circles to form a wireframe sphere
+            DrawCircle(center, radius, Vector3.up);
+            DrawCircle(center, radius, Vector3.right);
+            DrawCircle(center, radius, Vector3.forward);
+            
+            Gizmos.color = oldColor;
+        }
+
+        private void DrawCircle(Vector3 center, float radius, Vector3 normal)
+        {
+            Vector3 forward = Vector3.Cross(normal, Vector3.up);
+            if (forward.magnitude < 0.1f)
+                forward = Vector3.Cross(normal, Vector3.right);
+            
+            Vector3 right = Vector3.Cross(normal, forward).normalized;
+            forward = forward.normalized;
+
+            int segments = 32;
+            Vector3 prevPos = center + right * radius;
+            
+            for (int i = 1; i <= segments; i++)
+            {
+                float angle = (float)i / segments * Mathf.PI * 2f;
+                Vector3 newPos = center + (right * Mathf.Cos(angle) + forward * Mathf.Sin(angle)) * radius;
+                Gizmos.DrawLine(prevPos, newPos);
+                prevPos = newPos;
+            }
+        }
+
+        private void DrawLabel(Vector3 position, string text, Color color)
+        {
+            #if UNITY_EDITOR
+            UnityEditor.Handles.color = color;
+            UnityEditor.Handles.Label(position, text);
+            #endif
+        }
+
+        // Method to toggle visualization at runtime
+        public void ToggleVisualization()
+        {
+            showNodesAndLinks = !showNodesAndLinks;
+        }
+
+        public void SetVisualizationOptions(bool nodes, bool links, bool indices, bool forces)
+        {
+            showNodes = nodes;
+            showLinks = links;
+            showNodeIndices = indices;
+            showLinkForces = forces;
+        }
+
+        public void SetVisualizationOptions(bool nodes, bool links, bool indices, bool forces, bool influenceRadius)
+        {
+            showNodes = nodes;
+            showLinks = links;
+            showNodeIndices = indices;
+            showLinkForces = forces;
+            showInfluenceRadius = influenceRadius;
+        }
+
+        private void DrawInfluenceRadius()
+        {
+            if (nodeManager?.Nodes == null || meshDeformer == null) return;
+
+            float influenceRadius = meshDeformer.InfluenceRadius;
+            
+            for (int i = 0; i < nodeManager.Nodes.Count; i++)
+            {
+                if (nodeManager.Nodes[i] == null) continue;
+
+                Vector3 localPosition = nodeManager.Nodes[i].localPosition;
+                Vector3 worldPosition = owner.TransformPoint(localPosition);
+                
+                // Draw influence radius as wireframe sphere with transparent color
+                DrawWireSphere(worldPosition, influenceRadius, influenceRadiusColor);
+            }
+        }
+
+        // Get visualization statistics
+        public string GetVisualizationStats()
+        {
+            int nodeCount = nodeManager?.Nodes?.Count ?? 0;
+            int linkCount = beams?.Count ?? 0;
+            int pinnedNodes = 0;
+            
+            if (nodeManager?.IsPinned != null)
+            {
+                for (int i = 0; i < nodeManager.IsPinned.Count; i++)
+                {
+                    if (nodeManager.IsPinned[i]) pinnedNodes++;
+                }
+            }
+
+            return $"Nodes: {nodeCount} (Pinned: {pinnedNodes}) | Links: {linkCount}";
         }
     }
 }
