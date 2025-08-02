@@ -16,7 +16,7 @@
 
 namespace DynamicEngine
 {
-    public class NodeLinkEditor : MonoBehaviour
+    public class TrussDesigner : MonoBehaviour
     {
         [Header("Node and Link Data")]
         [SerializeField] public List<Vector3> nodes = new List<Vector3>();
@@ -984,3 +984,4 @@ namespace DynamicEngine
         }
     }
 }
+
