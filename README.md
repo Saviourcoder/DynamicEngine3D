@@ -6,4 +6,4 @@ Uses XPBD for Simulating Soft-Bodies, More Info on that Here: https://www.youtub
 
 <img width="640" height="143" alt="FlexDyn Crash" src="https://github.com/user-attachments/assets/f2d5aca5-2c7c-4032-b192-838f6dd6c7d8" />
 
-A Custom-Made Physics for FlexDyn.Crash Aswell
+A Custom-Made Physics Engine for FlexDyn.Crash Aswell
