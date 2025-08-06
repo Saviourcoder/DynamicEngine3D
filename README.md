@@ -1,9 +1,32 @@
-# DynamicEngine3D
-Open-source XPBD Physics Engine for Unity3D
-(Soft-Body)
-![engine Icon](https://github.com/user-attachments/assets/3f28f46e-5c8f-4fb0-8106-aca79122ad5e)
-Uses XPBD for Simulating Soft-Bodies, More Info on that Here: https://www.youtube.com/watch?v=jrociOAYqxA&t=8s
+DynamicEngine3D
+DynamicEngine3D is a soft-body physics engine built using the XPBD (Extended Position-Based Dynamics) framework. It allows for the simulation of deformable objects in 3D space, offering realistic interactions and stable behavior for soft bodies in real-time applications.
 
-<img width="640" height="143" alt="FlexDyn Crash" src="https://github.com/user-attachments/assets/f2d5aca5-2c7c-4032-b192-838f6dd6c7d8" />
+Features:
+Realistic soft-body physics for objects like rubber, cloth, and liquids.
 
-A Custom-Made Physics Engine for FlexDyn.Crash Aswell
+Built on the XPBD framework for stable and efficient simulations.
+
+3D real-time simulation with support for deformations, forces, and collisions.
+
+Modular and flexible design for easy integration into various projects.
+
+Why Choose DynamicEngine3D?
+DynamicEngine3D offers high performance and stability, even with complex soft-body interactions. It’s ideal for applications in gaming, simulations, and virtual environments, providing accurate deformations and real-time behavior.
+
+Installation:
+Clone the repository and integrate it into your project. For detailed installation instructions, see the Installation Guide.
+
+Usage:
+Create and simulate soft-body objects.
+
+Apply forces and simulate realistic deformations.
+
+Handle collisions between soft bodies and rigid objects.
+
+For more details, check the Usage Guide.
+
+Contributing:
+Contributions are welcome! Feel free to fork the repo, create a branch, and submit pull requests.
+
+License:
+This project is licensed under the MIT License.
