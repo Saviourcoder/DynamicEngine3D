@@ -12,14 +12,10 @@
 DynamicEngine3D offers high performance and stability, even with complex soft-body interactions. It’s ideal for applications in gaming, simulations, and virtual environments, providing accurate deformations and real-time behavior.
 
 ## Installation:
-Clone the repository and integrate it into your project. For detailed installation instructions, see the [Installation Guide](link-to-guide).
+Clone the repository and integrate it into your project. Installation Manual is WIP (Releasing Soon!).
 
 ## Usage:
-- Create and simulate soft-body objects.
-- Apply forces and simulate realistic deformations.
-- Handle collisions between soft bodies and rigid objects.
-
-For more details, check the [Usage Guide](link-to-guide).
+- Usage Manual is WIP (Releasing Soon!).
 
 ## Contributing:
 Contributions are welcome! Feel free to fork the repo, create a branch, and submit pull requests.
