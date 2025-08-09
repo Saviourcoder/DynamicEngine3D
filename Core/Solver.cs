@@ -1,12 +1,10 @@
-/* DynamicEngine3D - Soft Body Simulation
-   *---*---*
-  / \ / \ / \
- *---*---*---*
- | DynamicEngine3D |  By: Elitmers
- *---*---*---*
-  \ / \ / \ /
-   *---*---*
-*/
+/* ____                               ______            _            _____ ____ 
+  / __ \__  ______  ____ _____ ___  (_)____/ ____/___  ____ _(_)___  _____|__  // __ \
+ / / / / / / / __ \/ __ `/ __ `__ \/ / ___/ __/ / __ \/ __ `/ / __ \/ _ /___/ // / / /
+/ /_/ / /_/ / / / / /_/ / / / / / / / /__/ /___/ / / / /_/ / / / / /  __/  / // /_/ / 
+\____/\__, /_/ /_/\__,_/_/ /_/ /_/_/\___/_____/_/ /_/\__, /_/_/ /_/\___/  /_/ \____/  
+     /____/    Soft-Body Physics for Unity3D        /____/                           
+                                                                    By: Elitmers */
 using System.Collections.Generic;
 using UnityEngine;
 using DynamicEngine;
@@ -231,7 +229,7 @@ namespace DynamicEngine
             const float restitution = 0.05f;
             const float friction = 0.7f;
             const float restThreshold = 0.01f;
-            float dt = Time.fixedDeltaTime;
+            float dt = Time.fixedDeltaTime * SceneSettings.Instance.SimulationTimeScale;
             float dtSquared = dt * dt;
             const int maxSubSteps = 5;
 
