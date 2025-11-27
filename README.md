@@ -6,7 +6,7 @@
 Used for Car, Jelly, Metal deformation
 
 ## Aim:
-Extremely simple and intuitive and have a HL2- Style UI (You will see kater)
+Extremely simple and intuitive and have a HL2- Style UI (You will see later)
 
 ## License:
 This project is licensed under the MIT License.
