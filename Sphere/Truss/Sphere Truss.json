@@ -1,0 +1,2133 @@
+{
+    "nodePositions": [
+        {
+            "x": 0.16245555877685548,
+            "y": -0.49999526143074038,
+            "z": -0.8506544232368469
+        },
+        {
+            "x": 0.0,
+            "y": 0.0,
+            "z": -1.0
+        },
+        {
+            "x": -0.26286882162094118,
+            "y": -0.8090116381645203,
+            "z": -0.5257376432418823
+        },
+        {
+            "x": 0.276388019323349,
+            "y": -0.8506492376327515,
+            "z": -0.4472198486328125
+        },
+        {
+            "x": -0.42532268166542055,
+            "y": -0.30901139974594118,
+            "z": -0.8506541848182678
+        },
+        {
+            "x": -0.7236073017120361,
+            "y": -0.5257253050804138,
+            "z": -0.44721952080726626
+        },
+        {
+            "x": -0.42532268166542055,
+            "y": 0.30901139974594118,
+            "z": -0.8506541848182678
+        },
+        {
+            "x": -0.8506478667259216,
+            "y": 0.0,
+            "z": -0.5257359147071838
+        },
+        {
+            "x": 0.0,
+            "y": -0.9999999403953552,
+            "z": 0.0
+        },
+        {
+            "x": -0.9510578513145447,
+            "y": -0.30901262164115908,
+            "z": 0.0
+        },
+        {
+            "x": 0.525729775428772,
+            "y": 0.0,
+            "z": -0.8506516814231873
+        },
+        {
+            "x": -0.5877856016159058,
+            "y": -0.8090167045593262,
+            "z": 0.0
+        },
+        {
+            "x": 0.16245555877685548,
+            "y": 0.49999526143074038,
+            "z": -0.8506544232368469
+        },
+        {
+            "x": -0.7236073017120361,
+            "y": 0.5257253050804138,
+            "z": -0.44721952080726626
+        },
+        {
+            "x": 0.6881893873214722,
+            "y": -0.49999693036079409,
+            "z": -0.5257362127304077
+        },
+        {
+            "x": 0.6881893873214722,
+            "y": 0.49999693036079409,
+            "z": -0.5257362127304077
+        },
+        {
+            "x": -0.9510578513145447,
+            "y": 0.30901262164115908,
+            "z": 0.0
+        },
+        {
+            "x": 0.276388019323349,
+            "y": 0.8506492376327515,
+            "z": -0.4472198486328125
+        },
+        {
+            "x": 0.5877856016159058,
+            "y": -0.8090167045593262,
+            "z": 0.0
+        },
+        {
+            "x": 0.8944262266159058,
+            "y": 0.0,
+            "z": -0.44721561670303347
+        },
+        {
+            "x": -0.26286882162094118,
+            "y": 0.8090116381645203,
+            "z": -0.5257376432418823
+        },
+        {
+            "x": 0.9510578513145447,
+            "y": -0.30901262164115908,
+            "z": 0.0
+        },
+        {
+            "x": -0.5877856016159058,
+            "y": 0.8090167045593262,
+            "z": 0.0
+        },
+        {
+            "x": 0.9510578513145447,
+            "y": 0.30901262164115908,
+            "z": 0.0
+        },
+        {
+            "x": 0.5877856016159058,
+            "y": 0.8090167045593262,
+            "z": 0.0
+        },
+        {
+            "x": 0.0,
+            "y": 0.9999999403953552,
+            "z": 0.0
+        },
+        {
+            "x": 0.7236073017120361,
+            "y": -0.5257253050804138,
+            "z": 0.44721952080726626
+        },
+        {
+            "x": 0.26286882162094118,
+            "y": -0.8090116381645203,
+            "z": 0.5257376432418823
+        },
+        {
+            "x": 0.26286882162094118,
+            "y": 0.8090116381645203,
+            "z": 0.5257376432418823
+        },
+        {
+            "x": 0.42532268166542055,
+            "y": -0.30901139974594118,
+            "z": 0.8506541848182678
+        },
+        {
+            "x": 0.7236073017120361,
+            "y": 0.5257253050804138,
+            "z": 0.44721952080726626
+        },
+        {
+            "x": -0.276388019323349,
+            "y": 0.8506492376327515,
+            "z": 0.4472198486328125
+        },
+        {
+            "x": -0.16245555877685548,
+            "y": -0.49999526143074038,
+            "z": 0.8506543636322022
+        },
+        {
+            "x": -0.276388019323349,
+            "y": -0.8506492376327515,
+            "z": 0.4472198486328125
+        },
+        {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 1.0
+        },
+        {
+            "x": -0.16245555877685548,
+            "y": 0.49999526143074038,
+            "z": 0.8506543636322022
+        },
+        {
+            "x": -0.525729775428772,
+            "y": 0.0,
+            "z": 0.8506516814231873
+        },
+        {
+            "x": -0.6881893873214722,
+            "y": 0.49999693036079409,
+            "z": 0.5257362127304077
+        },
+        {
+            "x": -0.6881893873214722,
+            "y": -0.49999693036079409,
+            "z": 0.5257362127304077
+        },
+        {
+            "x": -0.8944262266159058,
+            "y": 0.0,
+            "z": 0.44721561670303347
+        },
+        {
+            "x": 0.42532268166542055,
+            "y": 0.30901139974594118,
+            "z": 0.8506541848182678
+        },
+        {
+            "x": 0.8506478667259216,
+            "y": 0.0,
+            "z": 0.5257359147071838
+        }
+    ],
+    "nodeMasses": [
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533,
+        2.380951404571533
+    ],
+    "beams": [
+        {
+            "nodeA": 0,
+            "nodeB": 1,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465264916419983,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 2,
+            "nodeB": 3,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465314388275147,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 4,
+            "nodeB": 5,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465328693389893,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 6,
+            "nodeB": 7,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.618030309677124,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 6,
+            "nodeB": 1,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465268492698669,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 4,
+            "nodeB": 0,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180275678634644,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 7,
+            "nodeB": 5,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465264916419983,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 8,
+            "nodeB": 3,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465359687805176,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 1,
+            "nodeB": 4,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465268492698669,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 3,
+            "nodeB": 0,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465329885482788,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 9,
+            "nodeB": 5,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465376973152161,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 2,
+            "nodeB": 8,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180425882339478,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 2,
+            "nodeB": 0,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180314421653748,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 10,
+            "nodeB": 1,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465315580368042,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 6,
+            "nodeB": 4,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180227994918823,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 11,
+            "nodeB": 5,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465407967567444,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 4,
+            "nodeB": 2,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180309653282166,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 0,
+            "nodeB": 10,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.618031919002533,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 12,
+            "nodeB": 1,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465264916419983,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 6,
+            "nodeB": 13,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465328693389893,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 10,
+            "nodeB": 12,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.618031919002533,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 4,
+            "nodeB": 7,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.618030309677124,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 2,
+            "nodeB": 11,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180379986763,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 0,
+            "nodeB": 14,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180354952812195,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 14,
+            "nodeB": 10,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180292367935181,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 5,
+            "nodeB": 2,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465310215950012,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 7,
+            "nodeB": 9,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180365681648254,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 15,
+            "nodeB": 12,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180354952812195,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 10,
+            "nodeB": 15,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180292367935181,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 3,
+            "nodeB": 14,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465365648269653,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 7,
+            "nodeB": 16,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180365681648254,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 17,
+            "nodeB": 12,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465329885482788,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 17,
+            "nodeB": 15,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465365648269653,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 18,
+            "nodeB": 3,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465412139892578,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 14,
+            "nodeB": 19,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465309023857117,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 16,
+            "nodeB": 13,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465376973152161,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 18,
+            "nodeB": 14,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180394291877747,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 19,
+            "nodeB": 15,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465309023857117,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 20,
+            "nodeB": 13,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465310215950012,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 16,
+            "nodeB": 9,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180252432823181,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 14,
+            "nodeB": 21,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180399656295776,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 19,
+            "nodeB": 10,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465324521064758,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 22,
+            "nodeB": 13,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465407967567444,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 23,
+            "nodeB": 15,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180399656295776,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 21,
+            "nodeB": 19,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465324521064758,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 13,
+            "nodeB": 7,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465264916419983,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 24,
+            "nodeB": 15,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180394291877747,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 20,
+            "nodeB": 22,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180379986763,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 23,
+            "nodeB": 19,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465324521064758,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 18,
+            "nodeB": 21,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180378794670105,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 24,
+            "nodeB": 17,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465412139892578,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 20,
+            "nodeB": 25,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180425882339478,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 25,
+            "nodeB": 17,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465359687805176,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 23,
+            "nodeB": 24,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180378794670105,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 6,
+            "nodeB": 20,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180309653282166,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 18,
+            "nodeB": 26,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465407967567444,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 20,
+            "nodeB": 17,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465314388275147,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 24,
+            "nodeB": 25,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180343627929688,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 12,
+            "nodeB": 6,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180275678634644,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 27,
+            "nodeB": 26,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465310215950012,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 20,
+            "nodeB": 12,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180314421653748,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 25,
+            "nodeB": 22,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180343627929688,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 18,
+            "nodeB": 27,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180379986763,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 24,
+            "nodeB": 28,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180379986763,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 25,
+            "nodeB": 28,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180425882339478,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 8,
+            "nodeB": 18,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180343627929688,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 27,
+            "nodeB": 29,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180309653282166,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 30,
+            "nodeB": 24,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465407967567444,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 8,
+            "nodeB": 27,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180425882339478,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 30,
+            "nodeB": 28,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465310215950012,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 25,
+            "nodeB": 31,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465359687805176,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 32,
+            "nodeB": 29,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180275678634644,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 27,
+            "nodeB": 32,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180314421653748,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 28,
+            "nodeB": 31,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465314388275147,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 8,
+            "nodeB": 33,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465359687805176,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 34,
+            "nodeB": 29,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465268492698669,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 32,
+            "nodeB": 33,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.546532928943634,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 11,
+            "nodeB": 8,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180343627929688,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 35,
+            "nodeB": 31,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.546532928943634,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 36,
+            "nodeB": 34,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465315580368042,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 11,
+            "nodeB": 33,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465412139892578,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 36,
+            "nodeB": 32,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.618031919002533,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 35,
+            "nodeB": 34,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465264916419983,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 37,
+            "nodeB": 31,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465365648269653,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 37,
+            "nodeB": 36,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180292367935181,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 34,
+            "nodeB": 32,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465264916419983,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 38,
+            "nodeB": 33,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465365648269653,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 9,
+            "nodeB": 11,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180378794670105,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 11,
+            "nodeB": 38,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180394291877747,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 33,
+            "nodeB": 27,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465314388275147,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 39,
+            "nodeB": 9,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465324521064758,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 37,
+            "nodeB": 35,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180354952812195,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 9,
+            "nodeB": 38,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180399656295776,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 39,
+            "nodeB": 37,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465309023857117,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 35,
+            "nodeB": 36,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.618031919002533,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 22,
+            "nodeB": 16,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180378794670105,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 38,
+            "nodeB": 36,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180292367935181,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 16,
+            "nodeB": 39,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465324521064758,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 22,
+            "nodeB": 37,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180394291877747,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 35,
+            "nodeB": 40,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180275678634644,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 39,
+            "nodeB": 38,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465309023857117,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 16,
+            "nodeB": 37,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180399656295776,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 31,
+            "nodeB": 22,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465412139892578,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 34,
+            "nodeB": 40,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465268492698669,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 38,
+            "nodeB": 32,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180354952812195,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 39,
+            "nodeB": 36,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465324521064758,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 40,
+            "nodeB": 29,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180227994918823,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 28,
+            "nodeB": 35,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180314421653748,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 28,
+            "nodeB": 40,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180309653282166,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 41,
+            "nodeB": 29,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.618030309677124,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 23,
+            "nodeB": 30,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465376973152161,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 26,
+            "nodeB": 21,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465376973152161,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 40,
+            "nodeB": 41,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.618030309677124,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 21,
+            "nodeB": 23,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180252432823181,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 29,
+            "nodeB": 26,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465328693389893,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 40,
+            "nodeB": 30,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465328693389893,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 30,
+            "nodeB": 41,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465264916419983,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 23,
+            "nodeB": 41,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180365681648254,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 21,
+            "nodeB": 41,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.6180365681648254,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        },
+        {
+            "nodeA": 26,
+            "nodeB": 41,
+            "compliance": 0.00009999999747378752,
+            "damping": 1000.0,
+            "restLength": 0.5465264916419983,
+            "breakingThreshold": 100.0,
+            "maxDeformation": 0.5,
+            "plasticityThreshold": 0.05000000074505806,
+            "plasticityRate": 0.10000000149011612,
+            "isActive": true
+        }
+    ],
+    "nodeSets": [
+        {
+            "name": "Reference",
+            "indices": [
+                14,
+                25,
+                38
+            ],
+            "color": {
+                "r": 0.0,
+                "g": 1.0,
+                "b": 1.0,
+                "a": 1.0
+            },
+            "isVisible": true
+        }
+    ],
+    "linkSets": [],
+    "faces": [
+        {
+            "nodeA": 1,
+            "nodeB": 0,
+            "nodeC": 4
+        },
+        {
+            "nodeA": 1,
+            "nodeB": 10,
+            "nodeC": 0
+        },
+        {
+            "nodeA": 1,
+            "nodeB": 12,
+            "nodeC": 10
+        },
+        {
+            "nodeA": 1,
+            "nodeB": 6,
+            "nodeC": 12
+        },
+        {
+            "nodeA": 4,
+            "nodeB": 6,
+            "nodeC": 1
+        },
+        {
+            "nodeA": 0,
+            "nodeB": 2,
+            "nodeC": 4
+        },
+        {
+            "nodeA": 0,
+            "nodeB": 3,
+            "nodeC": 2
+        },
+        {
+            "nodeA": 3,
+            "nodeB": 8,
+            "nodeC": 2
+        },
+        {
+            "nodeA": 3,
+            "nodeB": 18,
+            "nodeC": 8
+        },
+        {
+            "nodeA": 4,
+            "nodeB": 2,
+            "nodeC": 5
+        },
+        {
+            "nodeA": 5,
+            "nodeB": 7,
+            "nodeC": 4
+        },
+        {
+            "nodeA": 7,
+            "nodeB": 6,
+            "nodeC": 4
+        },
+        {
+            "nodeA": 5,
+            "nodeB": 9,
+            "nodeC": 7
+        },
+        {
+            "nodeA": 5,
+            "nodeB": 11,
+            "nodeC": 9
+        },
+        {
+            "nodeA": 8,
+            "nodeB": 11,
+            "nodeC": 2
+        },
+        {
+            "nodeA": 2,
+            "nodeB": 11,
+            "nodeC": 5
+        },
+        {
+            "nodeA": 7,
+            "nodeB": 13,
+            "nodeC": 6
+        },
+        {
+            "nodeA": 10,
+            "nodeB": 14,
+            "nodeC": 0
+        },
+        {
+            "nodeA": 0,
+            "nodeB": 14,
+            "nodeC": 3
+        },
+        {
+            "nodeA": 14,
+            "nodeB": 18,
+            "nodeC": 3
+        },
+        {
+            "nodeA": 10,
+            "nodeB": 19,
+            "nodeC": 14
+        },
+        {
+            "nodeA": 19,
+            "nodeB": 21,
+            "nodeC": 14
+        },
+        {
+            "nodeA": 21,
+            "nodeB": 18,
+            "nodeC": 14
+        },
+        {
+            "nodeA": 19,
+            "nodeB": 23,
+            "nodeC": 21
+        },
+        {
+            "nodeA": 12,
+            "nodeB": 15,
+            "nodeC": 10
+        },
+        {
+            "nodeA": 10,
+            "nodeB": 15,
+            "nodeC": 19
+        },
+        {
+            "nodeA": 15,
+            "nodeB": 23,
+            "nodeC": 19
+        },
+        {
+            "nodeA": 6,
+            "nodeB": 13,
+            "nodeC": 20
+        },
+        {
+            "nodeA": 13,
+            "nodeB": 22,
+            "nodeC": 20
+        },
+        {
+            "nodeA": 13,
+            "nodeB": 16,
+            "nodeC": 22
+        },
+        {
+            "nodeA": 9,
+            "nodeB": 16,
+            "nodeC": 7
+        },
+        {
+            "nodeA": 7,
+            "nodeB": 16,
+            "nodeC": 13
+        },
+        {
+            "nodeA": 9,
+            "nodeB": 39,
+            "nodeC": 16
+        },
+        {
+            "nodeA": 21,
+            "nodeB": 26,
+            "nodeC": 18
+        },
+        {
+            "nodeA": 24,
+            "nodeB": 23,
+            "nodeC": 15
+        },
+        {
+            "nodeA": 17,
+            "nodeB": 24,
+            "nodeC": 15
+        },
+        {
+            "nodeA": 17,
+            "nodeB": 25,
+            "nodeC": 24
+        },
+        {
+            "nodeA": 22,
+            "nodeB": 25,
+            "nodeC": 20
+        },
+        {
+            "nodeA": 20,
+            "nodeB": 25,
+            "nodeC": 17
+        },
+        {
+            "nodeA": 12,
+            "nodeB": 17,
+            "nodeC": 15
+        },
+        {
+            "nodeA": 12,
+            "nodeB": 20,
+            "nodeC": 17
+        },
+        {
+            "nodeA": 6,
+            "nodeB": 20,
+            "nodeC": 12
+        },
+        {
+            "nodeA": 24,
+            "nodeB": 30,
+            "nodeC": 23
+        },
+        {
+            "nodeA": 22,
+            "nodeB": 31,
+            "nodeC": 25
+        },
+        {
+            "nodeA": 18,
+            "nodeB": 26,
+            "nodeC": 27
+        },
+        {
+            "nodeA": 26,
+            "nodeB": 29,
+            "nodeC": 27
+        },
+        {
+            "nodeA": 18,
+            "nodeB": 27,
+            "nodeC": 8
+        },
+        {
+            "nodeA": 8,
+            "nodeB": 27,
+            "nodeC": 33
+        },
+        {
+            "nodeA": 8,
+            "nodeB": 33,
+            "nodeC": 11
+        },
+        {
+            "nodeA": 11,
+            "nodeB": 33,
+            "nodeC": 38
+        },
+        {
+            "nodeA": 33,
+            "nodeB": 32,
+            "nodeC": 38
+        },
+        {
+            "nodeA": 29,
+            "nodeB": 32,
+            "nodeC": 27
+        },
+        {
+            "nodeA": 27,
+            "nodeB": 32,
+            "nodeC": 33
+        },
+        {
+            "nodeA": 11,
+            "nodeB": 38,
+            "nodeC": 9
+        },
+        {
+            "nodeA": 9,
+            "nodeB": 38,
+            "nodeC": 39
+        },
+        {
+            "nodeA": 25,
+            "nodeB": 31,
+            "nodeC": 28
+        },
+        {
+            "nodeA": 31,
+            "nodeB": 35,
+            "nodeC": 28
+        },
+        {
+            "nodeA": 25,
+            "nodeB": 28,
+            "nodeC": 24
+        },
+        {
+            "nodeA": 24,
+            "nodeB": 28,
+            "nodeC": 30
+        },
+        {
+            "nodeA": 32,
+            "nodeB": 36,
+            "nodeC": 38
+        },
+        {
+            "nodeA": 38,
+            "nodeB": 36,
+            "nodeC": 39
+        },
+        {
+            "nodeA": 39,
+            "nodeB": 36,
+            "nodeC": 37
+        },
+        {
+            "nodeA": 36,
+            "nodeB": 35,
+            "nodeC": 37
+        },
+        {
+            "nodeA": 37,
+            "nodeB": 35,
+            "nodeC": 31
+        },
+        {
+            "nodeA": 16,
+            "nodeB": 39,
+            "nodeC": 37
+        },
+        {
+            "nodeA": 16,
+            "nodeB": 37,
+            "nodeC": 22
+        },
+        {
+            "nodeA": 22,
+            "nodeB": 37,
+            "nodeC": 31
+        },
+        {
+            "nodeA": 32,
+            "nodeB": 34,
+            "nodeC": 36
+        },
+        {
+            "nodeA": 36,
+            "nodeB": 34,
+            "nodeC": 35
+        },
+        {
+            "nodeA": 29,
+            "nodeB": 34,
+            "nodeC": 32
+        },
+        {
+            "nodeA": 40,
+            "nodeB": 34,
+            "nodeC": 29
+        },
+        {
+            "nodeA": 35,
+            "nodeB": 34,
+            "nodeC": 40
+        },
+        {
+            "nodeA": 35,
+            "nodeB": 40,
+            "nodeC": 28
+        },
+        {
+            "nodeA": 40,
+            "nodeB": 29,
+            "nodeC": 41
+        },
+        {
+            "nodeA": 30,
+            "nodeB": 40,
+            "nodeC": 41
+        },
+        {
+            "nodeA": 28,
+            "nodeB": 40,
+            "nodeC": 30
+        },
+        {
+            "nodeA": 23,
+            "nodeB": 30,
+            "nodeC": 41
+        },
+        {
+            "nodeA": 23,
+            "nodeB": 41,
+            "nodeC": 21
+        },
+        {
+            "nodeA": 21,
+            "nodeB": 41,
+            "nodeC": 26
+        },
+        {
+            "nodeA": 41,
+            "nodeB": 29,
+            "nodeC": 26
+        }
+    ],
+    "beamProperties": {
+        "name": "Sphere Truss",
+        "compliance": 0.009999999776482582,
+        "damping": 0.30000001192092898
+    },
+    "maxStretchFactor": 1.0499999523162842,
+    "minStretchFactor": 0.949999988079071,
+    "pinnedNodes": [],
+    "centerOfMass": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+    }
+}
