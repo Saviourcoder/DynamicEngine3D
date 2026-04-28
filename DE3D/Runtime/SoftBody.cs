@@ -158,7 +158,17 @@ namespace DynamicEngine
                 foreach (var sb in activeBodies) sb.solver.ApplyPlasticityStep(subDt);
                 foreach (var sb in activeBodies) sb.solver.CheckAndBreakConstraints(subDt);
 
-                foreach (var sb in activeBodies) sb.solver.ResolveCollisions(subDt);
+                // Single multi-threaded pass over all active bodies (cross-body
+                // pairs run in parallel via graph-coloured Burst job batches,
+                // static collisions run in parallel after them, all completed
+                // in one JobHandle.Complete()). This replaces the previous
+                // per-body loop that scaled O(N^2) and double-processed every
+                // cross-body pair (once per outer body).
+                CollisionHandler.ResolveAllCollisions(
+                    activeBodies,
+                    subDt,
+                    PhysicsConstants.DEFAULT_COLLISION_EPSILON,
+                    activeBodies.Count > 0 && activeBodies[0].solver != null && activeBodies[0].solver.visualizeForces);
                 foreach (var sb in activeBodies) sb.solver.FinalizePositions();
             }
 
@@ -407,4 +417,4 @@ namespace DynamicEngine
             internalPressure = Mathf.Max(0f, internalPressure);
         }
     }
-}
+}

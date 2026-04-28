@@ -127,6 +127,13 @@ namespace DynamicEngine
 
         #region Main Resolve Method
 
+        // NOTE: Prefer CollisionHandler.ResolveAllCollisions(activeBodies, ...)
+        // for the global per-substep collision resolve. This single-body wrapper is
+        // kept for backward compatibility with external callers; it routes through
+        // the multi-threaded scheduler with a single body, which handles the body's
+        // static collisions and any cross-body interactions involving it (when
+        // multiple bodies are present in the active set, callers should use the
+        // bulk static method directly to avoid redundant work).
         public void ResolveCollisions(NodeManager nodeManager, Transform owner, Matter matterAsset, List<float> nodeMasses, float dt, float epsilon, bool visualizeForces)
         {
             if (!ValidateCollisionParameters(nodeManager, owner, nodeMasses)) return;
@@ -136,9 +143,16 @@ namespace DynamicEngine
 
             collisionPoints.Clear();
 
-            ResolveCrossBodyCollisions(nodeManager, owner, matterAsset, nodeMasses, dt, epsilon, visualizeForces);
-            ResolveStaticCollisions(nodeManager, owner, matterAsset, nodeMasses, dt, epsilon, visualizeForces);
+            SoftBody self = owner != null ? owner.GetComponent<SoftBody>() : null;
+            if (self == null) return;
+
+            if (s_singleBodyScratch == null) s_singleBodyScratch = new List<SoftBody>(1);
+            s_singleBodyScratch.Clear();
+            s_singleBodyScratch.Add(self);
+            ResolveAllCollisions(s_singleBodyScratch, dt, epsilon, visualizeForces);
         }
+
+        private static List<SoftBody> s_singleBodyScratch;
 
         private void CleanCache()
         {
@@ -1205,6 +1219,519 @@ namespace DynamicEngine
 
         public void ClearIgnoredPairs() => _ignoredBodyPairs.Clear();
 
+        internal bool IsHardExcluded(int otherInstanceId) => _hardExcludedBodyIds.Contains(otherInstanceId);
+        internal bool IsIgnoredPair(int2 sortedPair) => _ignoredBodyPairs.Contains(sortedPair);
+
+        #endregion
+
+        #region Static Multi-Body Scheduler
+
+        // ────────────────────────────────────────────────────────────────────────
+        // Multi-body / multi-threaded collision scheduler.
+        //
+        // Replaces the previous per-body ResolveCollisions(...) loop in
+        // SoftBody.RunGlobalPhysicsStep. Key wins over the legacy path:
+        //
+        //   • Cross-body pair work is deduplicated (each (A,B) pair is processed
+        //     once per substep instead of twice — once for A-outer, once for
+        //     B-outer in the previous design).
+        //   • Per-body NativeArrays (predicted / current / previous / mass /
+        //     pinned / faces) are allocated once per substep and reused across
+        //     every job that touches that body, eliminating O(pairs) TempJob
+        //     allocations.
+        //   • Independent body pairs are scheduled in parallel via a greedy
+        //     graph colouring on the conflict graph (pairs that share a body
+        //     end up in different colour batches and are sequenced via
+        //     JobHandle dependencies; pairs in the same batch run truly
+        //     concurrently on Burst worker threads).
+        //   • The static-collider grid is a process-wide shared cache rather
+        //     than rebuilt redundantly per CollisionHandler.
+        //   • A single JobHandle.Complete() per substep replaces O(pairs)
+        //     synchronous Schedule().Complete() round-trips on the main thread.
+        //
+        // Physics math is unchanged — only the orchestration / threading.
+        // ────────────────────────────────────────────────────────────────────────
+
+        private struct BodyJobData : System.IDisposable
+        {
+            public NativeArray<float3> predicted;
+            public NativeArray<float3> current;
+            public NativeArray<float3> previous;
+            public NativeArray<float> masses;
+            public NativeArray<bool> isPinned;
+            public NativeArray<FaceData> faces;
+            public Bounds bounds;
+            public int ownerInstanceId;
+            public float radius;
+            public float restitution;
+            public float staticFriction;
+            public float kineticFriction;
+            public bool valid;
+
+            public void Dispose()
+            {
+                if (predicted.IsCreated) predicted.Dispose();
+                if (current.IsCreated) current.Dispose();
+                if (previous.IsCreated) previous.Dispose();
+                if (masses.IsCreated) masses.Dispose();
+                if (isPinned.IsCreated) isPinned.Dispose();
+                if (faces.IsCreated) faces.Dispose();
+            }
+        }
+
+        // Process-wide shared static-collider cache. Built once per simulation
+        // frame from StaticBody.AllStaticBodies, then read concurrently by every
+        // body's StaticCollisionJob.
+        private static NativeList<StaticColliderData> s_sharedStaticColliders;
+        private static NativeParallelMultiHashMap<int, int> s_sharedStaticGrid;
+        private static float s_sharedStaticLastRefreshTime = -1f;
+        private static int s_sharedStaticLastFrame = -1;
+        private static bool s_sharedDisposeRegistered;
+
+        // Reusable per-substep scratch lists to avoid GC churn on the main thread.
+        private static List<int2> s_pairScratch;
+        private static List<int> s_colorScratch;
+        private static List<int> s_bodyColorMaskScratch;
+
+        private static void EnsureSharedInit()
+        {
+            if (!s_sharedStaticColliders.IsCreated)
+                s_sharedStaticColliders = new NativeList<StaticColliderData>(256, Allocator.Persistent);
+            if (!s_sharedStaticGrid.IsCreated)
+                s_sharedStaticGrid = new NativeParallelMultiHashMap<int, int>(1024, Allocator.Persistent);
+
+            if (!s_sharedDisposeRegistered)
+            {
+                s_sharedDisposeRegistered = true;
+                Application.quitting += DisposeSharedScheduler;
+            }
+        }
+
+        private static void DisposeSharedScheduler()
+        {
+            if (s_sharedStaticColliders.IsCreated) s_sharedStaticColliders.Dispose();
+            if (s_sharedStaticGrid.IsCreated) s_sharedStaticGrid.Dispose();
+            s_sharedStaticLastRefreshTime = -1f;
+            s_sharedStaticLastFrame = -1;
+        }
+
+        private static void RefreshSharedStaticColliders()
+        {
+            // Rebuild at most once per simulation frame, and only if the cooldown
+            // has elapsed (matches the legacy per-handler refresh cadence).
+            int currentFrame = Time.frameCount;
+            if (s_sharedStaticLastFrame == currentFrame
+                && s_sharedStaticColliders.Length > 0
+                && Time.time - s_sharedStaticLastRefreshTime < STATIC_COLLIDER_REFRESH_INTERVAL)
+            {
+                return;
+            }
+            s_sharedStaticLastFrame = currentFrame;
+            s_sharedStaticLastRefreshTime = Time.time;
+
+            s_sharedStaticColliders.Clear();
+            s_sharedStaticGrid.Clear();
+
+            float invCell = 1f / STATIC_GRID_CELL_SIZE;
+
+            foreach (StaticBody sb in StaticBody.AllStaticBodies)
+            {
+                if (sb == null || !sb.isActiveAndEnabled) continue;
+
+                Collider[] colliders = sb.GetComponents<Collider>();
+                foreach (Collider col in colliders)
+                {
+                    if (col == null || !col.enabled || !col.gameObject.activeInHierarchy) continue;
+
+                    StaticColliderData data = new StaticColliderData
+                    {
+                        Center = col.bounds.center,
+                        StaticFriction = sb.matter != null ? sb.matter.StaticFriction : 0.5f,
+                        SlidingFriction = sb.matter != null ? sb.matter.SlidingFriction : 0.4f,
+                        Restitution = sb.matter != null ? sb.matter.Restitution : 0.2f,
+                        Layer = col.gameObject.layer
+                    };
+
+                    Transform t = col.transform;
+
+                    if (col is SphereCollider sphere)
+                    {
+                        data.Type = ColliderType.Sphere;
+                        data.Radius = sphere.radius * math.max(t.lossyScale.x, math.max(t.lossyScale.y, t.lossyScale.z));
+                        data.Center = t.TransformPoint(sphere.center);
+                    }
+                    else if (col is BoxCollider box)
+                    {
+                        data.Type = ColliderType.Box;
+                        data.Size = (float3)box.size * (float3)t.lossyScale;
+                        data.Rotation = t.rotation;
+                        data.Center = t.TransformPoint(box.center);
+                    }
+                    else if (col is MeshCollider meshCol && meshCol.sharedMesh != null)
+                    {
+                        Mesh mesh = meshCol.sharedMesh;
+                        Vector3[] verts = mesh.vertices;
+                        int[] tris = mesh.triangles;
+
+                        for (int i = 0; i < tris.Length; i += 3)
+                        {
+                            StaticColliderData triData = data;
+                            triData.Type = ColliderType.Triangle;
+                            triData.V0 = t.TransformPoint(verts[tris[i]]);
+                            triData.V1 = t.TransformPoint(verts[tris[i + 1]]);
+                            triData.V2 = t.TransformPoint(verts[tris[i + 2]]);
+                            triData.Center = (triData.V0 + triData.V1 + triData.V2) / 3f;
+
+                            s_sharedStaticColliders.Add(triData);
+                            int triangleIdx = s_sharedStaticColliders.Length - 1;
+
+                            Bounds triBounds = new Bounds(triData.Center, Vector3.zero);
+                            triBounds.Encapsulate(triData.V0);
+                            triBounds.Encapsulate(triData.V1);
+                            triBounds.Encapsulate(triData.V2);
+                            triBounds.Expand(0.05f);
+
+                            int tx0 = Mathf.FloorToInt(triBounds.min.x * invCell);
+                            int ty0 = Mathf.FloorToInt(triBounds.min.y * invCell);
+                            int tz0 = Mathf.FloorToInt(triBounds.min.z * invCell);
+                            int tx1 = Mathf.FloorToInt(triBounds.max.x * invCell);
+                            int ty1 = Mathf.FloorToInt(triBounds.max.y * invCell);
+                            int tz1 = Mathf.FloorToInt(triBounds.max.z * invCell);
+
+                            for (int cx = tx0; cx <= tx1; cx++)
+                                for (int cy = ty0; cy <= ty1; cy++)
+                                    for (int cz = tz0; cz <= tz1; cz++)
+                                    {
+                                        int hash = (cx * 73856093) ^ (cy * 19349663) ^ (cz * 83492791);
+                                        s_sharedStaticGrid.Add(hash, triangleIdx);
+                                    }
+                        }
+                        continue;
+                    }
+                    else if (col is CapsuleCollider cap)
+                    {
+                        data.Type = ColliderType.Capsule;
+                        data.Radius = cap.radius * math.max(t.lossyScale.x, t.lossyScale.z);
+                        data.Height = cap.height * t.lossyScale.y;
+                        data.Center = t.TransformPoint(cap.center);
+                        data.Axis = cap.direction == 0 ? t.right : (cap.direction == 2 ? t.forward : t.up);
+                    }
+                    else continue;
+
+                    s_sharedStaticColliders.Add(data);
+                    int idx = s_sharedStaticColliders.Length - 1;
+
+                    Bounds b = col.bounds;
+                    b.Expand(0.05f);
+
+                    int x0 = Mathf.FloorToInt(b.min.x * invCell);
+                    int y0 = Mathf.FloorToInt(b.min.y * invCell);
+                    int z0 = Mathf.FloorToInt(b.min.z * invCell);
+                    int x1 = Mathf.FloorToInt(b.max.x * invCell);
+                    int y1 = Mathf.FloorToInt(b.max.y * invCell);
+                    int z1 = Mathf.FloorToInt(b.max.z * invCell);
+
+                    for (int cx = x0; cx <= x1; cx++)
+                        for (int cy = y0; cy <= y1; cy++)
+                            for (int cz = z0; cz <= z1; cz++)
+                            {
+                                int hash = (cx * 73856093) ^ (cy * 19349663) ^ (cz * 83492791);
+                                s_sharedStaticGrid.Add(hash, idx);
+                            }
+                }
+            }
+        }
+
+        private static BodyJobData AllocateBodyData(SoftBody body)
+        {
+            BodyJobData d = default;
+            if (body == null || body.solver == null) return d;
+            NodeManager nm = body.solver.nodeManager;
+            if (nm == null) return d;
+            int count = nm.NodeCount;
+            if (count == 0) return d;
+
+            List<float> nodeMasses = body.solver.nodeMasses;
+            if (nodeMasses == null || nodeMasses.Count != count) return d;
+
+            d.predicted = new NativeArray<float3>(count, Allocator.TempJob);
+            d.current = new NativeArray<float3>(count, Allocator.TempJob);
+            d.previous = new NativeArray<float3>(count, Allocator.TempJob);
+            d.masses = new NativeArray<float>(count, Allocator.TempJob);
+            d.isPinned = new NativeArray<bool>(count, Allocator.TempJob);
+
+            Vector3 minB = nm.PredictedPositions[0];
+            Vector3 maxB = minB;
+            for (int i = 0; i < count; i++)
+            {
+                Vector3 p = nm.PredictedPositions[i];
+                d.predicted[i] = p;
+                d.current[i] = nm.GetPosition(i);
+                d.previous[i] = nm.PreviousPositions[i];
+                d.masses[i] = nodeMasses[i];
+                d.isPinned[i] = nm.IsPinned[i];
+                if (p.x < minB.x) minB.x = p.x; else if (p.x > maxB.x) maxB.x = p.x;
+                if (p.y < minB.y) minB.y = p.y; else if (p.y > maxB.y) maxB.y = p.y;
+                if (p.z < minB.z) minB.z = p.z; else if (p.z > maxB.z) maxB.z = p.z;
+            }
+            Bounds bounds = new Bounds();
+            bounds.SetMinMax(minB, maxB);
+            d.bounds = bounds;
+
+            List<Face> faceList = body.truss != null ? body.truss.GetTrussFaces() : null;
+            int faceCount = faceList != null ? faceList.Count : 0;
+            d.faces = new NativeArray<FaceData>(faceCount, Allocator.TempJob);
+            for (int i = 0; i < faceCount; i++)
+            {
+                Face f = faceList[i];
+                d.faces[i] = new FaceData { nodeA = f.nodeA, nodeB = f.nodeB, nodeC = f.nodeC };
+            }
+
+            d.ownerInstanceId = body.transform.GetInstanceID();
+            d.radius = nm.GetNodeRadius();
+            Matter m = body.matter;
+            d.restitution = m != null ? m.Restitution : 0.5f;
+            d.staticFriction = m != null ? m.StaticFriction : 0.5f;
+            d.kineticFriction = m != null ? m.SlidingFriction : 0.4f;
+            d.valid = true;
+            return d;
+        }
+
+        /// <summary>
+        /// Resolve all soft-body collisions (cross-body + static) for the given
+        /// active set in a single multi-threaded pass. Should be called once per
+        /// physics substep from the global step driver (see
+        /// SoftBody.RunGlobalPhysicsStep). Replaces per-body ResolveCollisions
+        /// loops, which scaled O(N^2) and double-processed every pair.
+        /// </summary>
+        public static void ResolveAllCollisions(IList<SoftBody> bodies, float dt, float epsilon, bool visualizeForces)
+        {
+            if (bodies == null || bodies.Count == 0) return;
+
+            EnsureSharedInit();
+            RefreshSharedStaticColliders();
+
+            int N = bodies.Count;
+            BodyJobData[] data = new BodyJobData[N];
+            for (int i = 0; i < N; i++)
+            {
+                SoftBody sb = bodies[i];
+                if (sb == null || !sb.enabled) { data[i] = default; continue; }
+                data[i] = AllocateBodyData(sb);
+            }
+
+            // Broadphase: build a deduplicated pair list (each (A,B) once).
+            if (s_pairScratch == null) s_pairScratch = new List<int2>(64); else s_pairScratch.Clear();
+            for (int i = 0; i < N; i++)
+            {
+                if (!data[i].valid) continue;
+                SoftBody bodyA = bodies[i];
+                CollisionHandler hA = bodyA.solver.collisionHandler;
+                Bounds bA = data[i].bounds;
+                bA.Expand(data[i].radius * 2f + epsilon);
+
+                for (int j = i + 1; j < N; j++)
+                {
+                    if (!data[j].valid) continue;
+                    SoftBody bodyB = bodies[j];
+                    CollisionHandler hB = bodyB.solver.collisionHandler;
+
+                    int idA = data[i].ownerInstanceId;
+                    int idB = data[j].ownerInstanceId;
+                    int2 sortedPair = idA < idB ? new int2(idA, idB) : new int2(idB, idA);
+
+                    if (hA.IsHardExcluded(idB) || hB.IsHardExcluded(idA)) continue;
+                    if (hA.IsIgnoredPair(sortedPair) || hB.IsIgnoredPair(sortedPair)) continue;
+                    if (((1 << bodyB.gameObject.layer) & (int)hA.CollisionLayerMask.value) == 0) continue;
+                    if (((1 << bodyA.gameObject.layer) & (int)hB.CollisionLayerMask.value) == 0) continue;
+
+                    if (!bA.Intersects(data[j].bounds)) continue;
+
+                    s_pairScratch.Add(new int2(i, j));
+                }
+            }
+
+            int M = s_pairScratch.Count;
+
+            // Greedy graph colouring on the body-conflict graph. Each pair is
+            // assigned the lowest colour not already used by either of its body
+            // endpoints. Pairs sharing the same colour have disjoint bodies and
+            // can therefore run in parallel without touching the same arrays.
+            if (s_colorScratch == null) s_colorScratch = new List<int>(64); else s_colorScratch.Clear();
+            if (s_bodyColorMaskScratch == null) s_bodyColorMaskScratch = new List<int>(N); else s_bodyColorMaskScratch.Clear();
+            for (int i = 0; i < N; i++) s_bodyColorMaskScratch.Add(0);
+
+            int maxColor = 0;
+            for (int p = 0; p < M; p++)
+            {
+                int a = s_pairScratch[p].x, b = s_pairScratch[p].y;
+                int forbid = s_bodyColorMaskScratch[a] | s_bodyColorMaskScratch[b];
+                int c = 0;
+                while (c < 30 && (forbid & (1 << c)) != 0) c++;
+                s_colorScratch.Add(c);
+                s_bodyColorMaskScratch[a] = s_bodyColorMaskScratch[a] | (1 << c);
+                s_bodyColorMaskScratch[b] = s_bodyColorMaskScratch[b] | (1 << c);
+                if (c > maxColor) maxColor = c;
+            }
+
+            NativeQueue<float3> sharedPoints = new NativeQueue<float3>(Allocator.TempJob);
+            NativeQueue<float3>.ParallelWriter pointWriter = sharedPoints.AsParallelWriter();
+
+            // Schedule cross-body pair jobs in colour batches. Within a batch
+            // jobs are independent (no shared body endpoints by construction),
+            // so they execute concurrently on Burst worker threads. Across
+            // batches we sequence via JobHandle dependencies so writes to a
+            // shared body's arrays remain ordered and safe under Unity's
+            // native-container safety system.
+            JobHandle prevColor = default;
+            for (int c = 0; c <= maxColor && M > 0; c++)
+            {
+                JobHandle batch = prevColor;
+                for (int p = 0; p < M; p++)
+                {
+                    if (s_colorScratch[p] != c) continue;
+                    int ai = s_pairScratch[p].x, bi = s_pairScratch[p].y;
+                    BodyJobData A = data[ai];
+                    BodyJobData B = data[bi];
+
+                    NodeToNodeCollisionJob nnJob = new NodeToNodeCollisionJob
+                    {
+                        predictedPosA = A.predicted,
+                        predictedPosB = B.predicted,
+                        currentPosA = A.current,
+                        currentPosB = B.current,
+                        massesA = A.masses,
+                        massesB = B.masses,
+                        collisionPointsOut = pointWriter,
+                        nodeRadiusA = A.radius,
+                        nodeRadiusB = B.radius,
+                        epsilon = epsilon,
+                        dt = dt,
+                        restitution = (A.restitution + B.restitution) * 0.5f,
+                        staticFriction = (A.staticFriction + B.staticFriction) * 0.5f,
+                        kineticFriction = (A.kineticFriction + B.kineticFriction) * 0.5f,
+                        spatialCellSize = SPATIAL_CELL_SIZE
+                    };
+                    JobHandle h = nnJob.Schedule(prevColor);
+
+                    if (B.faces.Length > 0)
+                    {
+                        FaceToNodeCollisionJob f1 = new FaceToNodeCollisionJob
+                        {
+                            nodePredPositions = A.predicted,
+                            nodePrevPositions = A.previous,
+                            nodeMasses = A.masses,
+                            nodeIsPinned = A.isPinned,
+                            facePredPositions = B.predicted,
+                            facePrevPositions = B.previous,
+                            faceMasses = B.masses,
+                            faceIsPinned = B.isPinned,
+                            faces = B.faces,
+                            collisionPointsOut = pointWriter,
+                            radiusNode = A.radius + SKIN_WIDTH,
+                            thickness = A.radius + SKIN_WIDTH + PhysicsConstants.DEFAULT_TRIANGLE_THICKNESS,
+                            epsilon = epsilon,
+                            dt = dt,
+                            faceNodeCellSize = FACE_NODE_CELL_SIZE
+                        };
+                        h = f1.Schedule(h);
+                    }
+
+                    if (A.faces.Length > 0)
+                    {
+                        FaceToNodeCollisionJob f2 = new FaceToNodeCollisionJob
+                        {
+                            nodePredPositions = B.predicted,
+                            nodePrevPositions = B.previous,
+                            nodeMasses = B.masses,
+                            nodeIsPinned = B.isPinned,
+                            facePredPositions = A.predicted,
+                            facePrevPositions = A.previous,
+                            faceMasses = A.masses,
+                            faceIsPinned = A.isPinned,
+                            faces = A.faces,
+                            collisionPointsOut = pointWriter,
+                            radiusNode = B.radius + SKIN_WIDTH,
+                            thickness = B.radius + SKIN_WIDTH + PhysicsConstants.DEFAULT_TRIANGLE_THICKNESS,
+                            epsilon = epsilon,
+                            dt = dt,
+                            faceNodeCellSize = FACE_NODE_CELL_SIZE
+                        };
+                        h = f2.Schedule(h);
+                    }
+
+                    batch = JobHandle.CombineDependencies(batch, h);
+                }
+                prevColor = batch;
+            }
+
+            // Static collisions per body, scheduled in parallel after the
+            // cross-body batches land. Each body's IJobParallelFor writes only
+            // its own arrays, so all bodies' static jobs can run concurrently.
+            JobHandle staticAccum = prevColor;
+            if (s_sharedStaticColliders.Length > 0)
+            {
+                for (int i = 0; i < N; i++)
+                {
+                    if (!data[i].valid) continue;
+                    SoftBody sb = bodies[i];
+                    if (sb == null || !sb.enabled) continue;
+
+                    Matter m = sb.matter;
+                    StaticCollisionJob staticJob = new StaticCollisionJob
+                    {
+                        currentPositions = data[i].current,
+                        predictedPositions = data[i].predicted,
+                        nodeMasses = data[i].masses,
+                        staticColliders = s_sharedStaticColliders.AsArray(),
+                        staticGrid = s_sharedStaticGrid,
+                        radius = data[i].radius + SKIN_WIDTH,
+                        dt = dt,
+                        epsilon = epsilon,
+                        gridCellSize = STATIC_GRID_CELL_SIZE,
+                        defaultRestitution = m != null ? m.Restitution : 0.02f,
+                        defaultStaticFriction = m != null ? m.StaticFriction : 0.5f,
+                        defaultSlidingFriction = m != null ? m.SlidingFriction : 0.4f
+                    };
+                    int len = data[i].current.Length;
+                    JobHandle sh = staticJob.Schedule(len, 64, prevColor);
+                    staticAccum = JobHandle.CombineDependencies(staticAccum, sh);
+                }
+            }
+
+            // One Complete() per substep — no per-pair main-thread stalls.
+            JobHandle.ScheduleBatchedJobs();
+            staticAccum.Complete();
+
+            // Flush results back into each NodeManager and free per-body data.
+            // Debug viz: drain shared collision points to the first valid body's
+            // handler list so existing visualisations keep working.
+            SoftBody firstWithHandler = null;
+            for (int i = 0; i < N; i++)
+            {
+                if (!data[i].valid) continue;
+                NodeManager nm = bodies[i].solver.nodeManager;
+                NativeArray<float3> pred = data[i].predicted;
+                NativeArray<float3> curr = data[i].current;
+                int len = nm.NodeCount;
+                for (int k = 0; k < len && k < pred.Length; k++)
+                {
+                    nm.PredictedPositions[k] = pred[k];
+                    nm.SetCurrentPosition(k, curr[k]);
+                }
+                if (firstWithHandler == null) firstWithHandler = bodies[i];
+                bodies[i].solver.collisionHandler.collisionPoints.Clear();
+                data[i].Dispose();
+            }
+
+            if (firstWithHandler != null)
+            {
+                NativeList<float3> dest = firstWithHandler.solver.collisionHandler.collisionPoints;
+                while (sharedPoints.TryDequeue(out float3 pt)) dest.Add(pt);
+            }
+            sharedPoints.Dispose();
+        }
+
         #endregion
     }
-}
+}
