@@ -1574,8 +1574,18 @@ namespace DynamicEngine
                 if (c > maxColor) maxColor = c;
             }
 
-            NativeQueue<float3> sharedPoints = new NativeQueue<float3>(Allocator.TempJob);
-            NativeQueue<float3>.ParallelWriter pointWriter = sharedPoints.AsParallelWriter();
+            // One NativeQueue per pair so concurrent pair jobs (in the same
+            // colour batch) write to disjoint NativeContainers. A shared
+            // ParallelWriter would trip Unity's job safety system because
+            // every Schedule() against the same writer requires a dependency
+            // chain, which would serialize all pairs and defeat the
+            // multi-threading. All pair queues are drained into the first
+            // valid body's debug-viz list after Complete().
+            NativeQueue<float3>[] pairPoints = M > 0 ? new NativeQueue<float3>[M] : null;
+            for (int p = 0; p < M; p++)
+            {
+                pairPoints[p] = new NativeQueue<float3>(Allocator.TempJob);
+            }
 
             // Schedule cross-body pair jobs in colour batches. Within a batch
             // jobs are independent (no shared body endpoints by construction),
@@ -1593,6 +1603,7 @@ namespace DynamicEngine
                     int ai = s_pairScratch[p].x, bi = s_pairScratch[p].y;
                     BodyJobData A = data[ai];
                     BodyJobData B = data[bi];
+                    NativeQueue<float3>.ParallelWriter pointWriter = pairPoints[p].AsParallelWriter();
 
                     NodeToNodeCollisionJob nnJob = new NodeToNodeCollisionJob
                     {
@@ -1724,12 +1735,21 @@ namespace DynamicEngine
                 data[i].Dispose();
             }
 
-            if (firstWithHandler != null)
+            if (pairPoints != null)
             {
-                NativeList<float3> dest = firstWithHandler.solver.collisionHandler.collisionPoints;
-                while (sharedPoints.TryDequeue(out float3 pt)) dest.Add(pt);
+                NativeList<float3> dest = firstWithHandler != null ? firstWithHandler.solver.collisionHandler.collisionPoints : default;
+                bool hasDest = firstWithHandler != null;
+                for (int p = 0; p < pairPoints.Length; p++)
+                {
+                    NativeQueue<float3> q = pairPoints[p];
+                    if (!q.IsCreated) continue;
+                    if (hasDest)
+                    {
+                        while (q.TryDequeue(out float3 pt)) dest.Add(pt);
+                    }
+                    q.Dispose();
+                }
             }
-            sharedPoints.Dispose();
         }
 
         #endregion
