@@ -350,19 +350,13 @@ EXPORT void StepBodyPreFinalize(
     const uint8_t* isPinned,
     BeamData* beams,
     float* multipliers,
-    float* restLengths,
-    const float* originalRestLengths,
-    const float* plasticityThresholds,
-    const float* plasticityRates,
-    const float* maxDeformations,
     int           nodeCount,
     int           beamCount,
     float         dt,
     float         damping,
     float         gravity,
     int           constraintIters,
-    float         internalPressure,
-    float         worldRestLengthScale)
+    float         internalPressure,)
 {
     if (nodeCount <= 0) return;
 
