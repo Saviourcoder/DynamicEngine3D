@@ -20,7 +20,7 @@ namespace PhysicsConstants
     constexpr float RIGID_COMPLIANCE_THRESHOLD = 1e-9f;
     constexpr float CROSS_BODY_CONSTRAINT_DAMPING = 0.0f;
 
-    // Node rotation (Müller polar decomposition)
+    // Node rotation (Muller polar decomposition)
     constexpr int   MAX_ROTATION_ITERATIONS = 5;
     constexpr float ROTATION_CONVERGENCE_EPSILON = 1e-9f;
     constexpr float MIN_OMEGA_MAGNITUDE = 1e-6f;
@@ -38,7 +38,7 @@ namespace PhysicsConstants
     constexpr float STANDARD_GRAVITY = 9.81f;
     constexpr float MIN_TANGENT_SPEED = 0.0001f;
 
-    // Spatial-hash cell sizes (must match C# CollisionHandler constants)
+    // Spatial-hash cell sizes 
     constexpr float SPATIAL_CELL_SIZE = 0.15f;
     constexpr float FACE_NODE_CELL_SIZE = 0.3f;
     constexpr float STATIC_GRID_CELL_SIZE = 2.0f;
