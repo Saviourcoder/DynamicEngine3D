@@ -580,7 +580,6 @@ EXPORT void SoftBody_StepPhysics(SoftBodyInstance* body, float dt, int constrain
         SolveConstraints(body->predictedPos.data(), body->beams.data(), body->multipliers.data(), masses, pinned, beamCount, dt);
     if (beamCount > 0)
     {
-        // Assuming ApplyPlasticity signature is updated as shown below
         ApplyPlasticity(body->predictedPos.data(), body->beams.data(), beamCount, dt);
     }
 }
