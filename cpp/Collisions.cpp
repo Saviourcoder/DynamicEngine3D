@@ -752,7 +752,6 @@ EXPORT void StepAllCollisions(
                 memcpy(bB.predicted, cPred.data() + bA.nodeCount, bB.nodeCount * sizeof(Vector3));
             }
 
-            // FIX: bA.current (not bA.previous) — both face passes now use the same timestep
             if (bA.faceCount > 0)
             {
                 ResolveFaceToNode(
@@ -1067,7 +1066,7 @@ if (radialDistSq < combinedR * combinedR && projStart >= 0.0f && projStart <= se
     return true;
 }
 
-    // Solve swept sphere vs. infinite cylinder, then clamp to segment
+    // Solve swept sphere vs. infinite cylinder, then clamp to segmento
     Vector3 d = Sub(start, p1);
     float   a = LengthSq(vel) - (Dot(vel, segDir) * Dot(vel, segDir));
     float   b = 2.0f * (Dot(vel, d) - Dot(vel, segDir) * Dot(d, segDir));
