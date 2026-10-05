@@ -14,7 +14,7 @@ Used for Car, Jelly, Metal deformation
 Become a Gold-Standard of Soft-body Physics in Unity
 
 ## License:
-This project is licensed under the MIT License.
+This project is licensed under the PolyForm Non-Commercial 1.0 License.
 
 ## Related-Repos
 Android : https://github.com/Saviourcoder/DynamicEngine3D-Android
