@@ -1,7 +1,7 @@
-<img width="1815" height="309" alt="DynamicEngine3D" src="https://github.com/user-attachments/assets/3133ed14-ea0c-4a38-a1f1-c3c64f782693" />
+<img width="2160" height="368" alt="DynamicEngine3D logo - Transparent" src="https://github.com/user-attachments/assets/f66f33d9-92aa-4414-845e-71b5e4b576a1" />
 
 ## DynamicEngine3D 
-DynamicEngine3D  is a soft-body physics engine built using the XPBD (Extended Position-Based Dynamics) framework with the help of AI. It allows for the simulation of deformable objects in 3D space, offering realistic interactions and stable behavior for soft bodies in real-time applications. It is built specifically for Krumpl3D
+DynamicEngine3D is a soft-body physics engine built using the XPBD (Extended Position-Based Dynamics) framework with the help of AI. It allows for the simulation of deformable objects in 3D space, offering realistic interactions and stable behavior for soft bodies in real-time applications. It is built specifically for the vehicle simulator Krumpl3D
 
 ## Usage:
 Used for Car, Jelly, Metal deformation
