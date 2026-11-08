@@ -1,0 +1,51 @@
+  _______     ___   _          __  __ _____ _____ ______ _   _  _____ _____ _   _ ______ ____  _____  
+ |  __ \ \   / / \ | |   /\   |  \/  |_   _/ ____|  ____| \ | |/ ____|_   _| \ | |  ____|___ \|  __ \ 
+ | |  | \ \_/ /|  \| |  /  \  | \  / | | || |    | |__  |  \| | |  __  | | |  \| | |__    __) | |  | |
+ | |  | |\   / | . ` | / /\ \ | |\/| | | || |    |  __| | . ` | | |_ | | | | . ` |  __|  |__ <| |  | |
+ | |__| | | |  | |\  |/ ____ \| |  | |_| || |____| |____| |\  | |__| |_| |_| |\  | |____ ___) | |__| |
+ |_____/  |_|  |_| \_/_/    \_\_|  |_|_____\_____|______|_| \_|\_____|_____|_| \_|______|____/|_____/ 
+ Date: 08-11-2026                    "Soft/Rigid Body XPBD Physics Engine"             By: Elitmers          
+ 
+   ________                           __           
+  / ____/ /_  ____ _____  ____ ____  / /___  ____ _
+ / /   / __ \/ __ `/ __ \/ __ `/ _ \/ / __ \/ __ `/
+/ /___/ / / / /_/ / / / / /_/ /  __/ / /_/ / /_/ / 
+\____/_/ /_/\__,_/_/ /_/\__, /\___/_/\____/\__, /  
+                       /____/             /____/ 
+
+START OF PROJECT : 26 May 2025
+(Not following any specific version naming system, just for the time being)
+
+V 0.1 : PUBLIC GITHUB RELEASE  22 Jun 2025
+V 0.2 : COMPLIANCE AND COLLISION IMPROVEMENTS  25 Jun 2025
+V 0.3 : STANDALONE CLASSES AND UPDATED EDITOR & SOLVER  26 Jun 2025
+V 0.4 : UPDATED SOLVER  16 Jul 2025
+V 0.5 : UPDATED SOFT-BODY/ NODE MANAGER/ TRUSS DESIGNER/ TRUSS/ MESH DEFORMER  16 Jul 2025
+V 0.6 : UPDATED SOFT-BODY/ SOLVER/ TRUSS DESIGNER  17 Jul 2025
+V 0.7 : UPDATED SOFT-BODY/ SOLVER/ TRUSS DESIGNER  18 Jul 2025
+V 0.8 : UPDATED ALL FILES  25 Jul 2025
+V 0.9 : UPDATED ALL FILES WITH NEW ID HANDLING SYSTEM  6 Aug 2025
+V 1.0 : ADDED VARIABLE TIMESCALE AND ADDED BRANDING IN ALL FILES  9 Aug 2025
+V 1.1 : COMPLETELY REVAMPED THE SYSTEM  5 Sep 2025
+V 1.2 : IMPROVED README WITH OTHER IMPROVEMENTS  7 Oct 2025
+V 1.3 : UPDATED README WITH MAJOR ADDITONS 
+        (PLASTICITY AND FIXED INFAMOUS MESH SKINNING BUG)  27 Nov 2025
+V 1.4 : MASSIVE OVERHAUL AND FIXES (PLASTICITY FIX, 
+        DESIGNER VALUES FIX, SOLVER CLEANUP, SLOWMOTION FIX)   5 Dec 2025
+V 1.5 : WORKING MOTOR LOGIC AND SOLVER UPDATED TO WORK WITH FIXED CONSTRAINTS   9 Dec 2025
+V 1.6 : OPTIMIZATION WITH JOBS, DOTS AND BURST COMPILATION AND PRESSURE LOGIC   12 Dec 2025
+V 1.7 : CUSTOM COLLISION SYSTEM ADDED BUT NOT IMPLEMENTED   19 Dec 2025
+V 1.8 : START OF COLLISION SYSTEM REVAMP (ABSTRACTION & IMPROVEMENTS)   23 Dec 2025
+V 1.9 : STABLE PHYSICS, 90% CUSTOM COLLISIONS, BUG FIXES, UPDATED XPBD-DEFYING CODE, 
+        UPDATED DAMPING, NODE CREATION FIXED, EDGE-NODE SETS UPDATED, UPDATED DESIGNER.CS
+        16 Jan 2026
+V 2.0 : ADDED DEMO SCENES, COLLISION & SKINNING OPTIMIZATIONS ETC.  19 Feb 2026
+V 2.1 : GENERAL STABILITY AND BUG FIXES  14 Apr 2026
+V 2.2 : INTERNAL PHYSICS TUNING AND TWEAKS  28 Apr 2026
+V 2.3 : README IMPROVEMENTS  1 May 2026
+V 2.4 : SHIFT TO C++ WITH BUG FIXES AND REVISED ARCHITECTURE ETC.  2 Jun 2026
+V 2.5 : IMPROVEMENTS FOR CROSS-BODY BEAMS AND OPTIMIZATIONS WITH CLEAN-UPS  10 Jun 2026
+V 2.6 : UPDATED LOGO IN README  25 Aug 2026
+V 2.7 : LICENSE SPECIFICATION ALONG WITH UPDATED ENGINE FILES AND REVISED ARCHITECTURE  26 Sep 2026
+V 2.8 : TOTAL LICENSE CHANGE TO PFNC 1.0 ALONG WITH UPDATED LOGO AND REVISED PROJECT DESCRIPTION  6 Oct 2026
+V 2.9 : REVISED ENGINE ARCHITECTURE WITH IMPROVEMENTS AND BUG FIXES AND UPDATED IMAGES AND ADDITION OF A CHANGELOG  8 Nov 2026
